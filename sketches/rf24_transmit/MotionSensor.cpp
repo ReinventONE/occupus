@@ -36,6 +36,14 @@ void MotionSensor::init() {
 	delay(CALIBRATION_SECONDS * 1000);
 }
 
+void MotionSensor::setPause(int pause) {
+	_pause = constrain(pause, 1000, 10000);
+}
+
+int MotionSensor::getPause() {
+	return _pause;
+}
+
 bool MotionSensor::detected() {
 	_lastDetection = (digitalRead(_pirPin) == HIGH);
 	return _lastDetection;

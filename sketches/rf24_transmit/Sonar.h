@@ -28,11 +28,14 @@ public:
 			int maxDistance,
 			uint16_t detectDistance);
 	bool detected(void);
+	void setDistance(unsigned int distance);
+	unsigned int getDistance();
 private:
 	NewPing *_sonar;
 	unsigned long _lastCheckMs;
 	bool _lastDetectedValue;
 	uint16_t _detectDistance;
+	int _maxDistance;
 };
 
 #endif /* SONAR_H_ */

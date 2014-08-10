@@ -1,4 +1,11 @@
 /*
+ * rf24_transmit.ino
+ *
+ * Created on: Aug 9, 2014
+ *      Author: Konstantin Gredeskoul
+ *
+ * (c) 2014 All rights reserved.  Please see LICENSE.
+ *
  * Connections for RF24:
  *
 	 GND		GND
@@ -9,6 +16,8 @@
 	 MOSI		11
 	 MISO		12
 
+ * Dependencies:
+ *   Encoder, NewPing, RF24, RotaryEncoderWithButton, SimpleTimer, SPI
  */
 
 #include <SPI.h>
@@ -18,42 +27,46 @@
 
 #include "Sonar.h"
 #include "MotionSensor.h"
+#include "LightSensor.h"
+
 #include <RotaryEncoderWithButton.h>
 #include <SimpleTimer.h>
 
+// define either SENDER_0 or SENDER_1 depending on which unit is being
+// worked on
 #define SENDER_0
 
 #ifdef SENDER_0
+#define ROTARY_CONTROL
+
 // pinA, pinB, pinButton
 RotaryEncoderWithButton rotary(2,3,4);
 
 //// Sender #0
-uint8_t pinStatusLed = 6,
-		pinMotionLed = 7,
-		pinSonarLed = 5,
+uint8_t pinLedBlue 		= 6,
+		pinLedGreen 	= 7,
+		pinLedRed 		= 5,
 
-		pinIRInput = A1,
-		pinPhotoCell = A0,
+		pinIRInput 		= A1,
+		pinPhotoCell	= A0,
 		pinSonarTrigger = A2,
-		pinSonarEcho = A3;
+		pinSonarEcho 	= A3;
 
 const uint8_t me 		= 0; // 0 or 1 (offset into senders[]) and pipes[]
 #endif
 
 #ifdef SENDER_1
-
 // Sender #1
-uint8_t pinStatusLed = 2,
-		pinMotionLed = 3,
-		pinSonarLed = 7,
+uint8_t pinLedBlue 		= 2,
+		pinLedGreen		= 3,
+		pinLedRed 		= 7,
 
-		pinIRInput = 6,
-		pinPhotoCell = A0,
+		pinIRInput 		= 6,
+		pinPhotoCell 	= A0,
 		pinSonarTrigger = 5,
-		pinSonarEcho = 4;
+		pinSonarEcho 	= 4;
 
 const uint8_t me 		= 1; // 0 or 1 (offset into senders[]) and pipes[]
-
 #endif
 
 Sonar sonar(
@@ -64,9 +77,10 @@ Sonar sonar(
 		90); // Recognize objects within this many centimeters
 
 MotionSensor motion(pinIRInput, 5000);
+LightSensor light(pinPhotoCell, 250);
 
 RF24 radio(9, 10);
-SimpleTimer timer(1);
+SimpleTimer timer(1), adjustmentTimer(2);
 
 typedef struct OccupancyStruct {
 	bool occupied;
@@ -98,14 +112,17 @@ void resetOccupancy() {
 	memset(&occupancy, 0x0, sizeof(occupancy));
 }
 
+void setOccupancyGracePeriod(unsigned int period) {
+	occupancyGracePeriod = constrain(period, 1000, 60000);
+}
 //____________________________________________________________________________
 //
 // Timers
 
 void showStatus(int timerId) {
-//	digitalWrite(pinStatusLed, occupancy.occupied ? HIGH : LOW);
-	digitalWrite(pinMotionLed, occupancy.motionDetected ? HIGH : LOW);
-	digitalWrite(pinSonarLed, occupancy.sonarDetected ? HIGH : LOW);
+	digitalWrite(pinLedBlue, occupancy.occupied ? HIGH : LOW);
+//	digitalWrite(pinLedGreen, occupancy.motionDetected ? HIGH : LOW);
+//	digitalWrite(pinLedRed, occupancy.sonarDetected ? HIGH : LOW);
 }
 
 void sendStatus(int timerId) {
@@ -116,10 +133,8 @@ void sendStatus(int timerId) {
 }
 
 void detectLight(int timerId) {
-	int photoCellReading = analogRead(pinPhotoCell);
-	occupancy.lightDetected = (photoCellReading > 250);
+	occupancy.lightDetected = light.lightsOn();
 }
-
 
 void detectMotion(int timerId) {
 	occupancy.motionDetected = motion.detectedNonRetriggering();
@@ -162,10 +177,98 @@ void analyzeOccupancy(int timerId) {
 	}
 }
 
+#ifdef ROTARY_CONTROL
+
+typedef enum {
+	NORMAL = 0,
+	SONAR,
+	MOTION,
+	LIGHT,
+	DELAY } modeType;
+
+uint8_t adjustmentLedModes[][3] = {
+	{0,0,0},
+	{pinLedRed, 	0,0},
+	{pinLedGreen, 	0,0},
+	{pinLedBlue, 	0,0},
+	{pinLedRed, pinLedGreen,	0}
+};
+
+modeType mode = NORMAL;
+bool modeLedOn = false;
+
+void modeLightsOn(int timerId) {
+	modeLedOn = !modeLedOn;
+
+	digitalWrite(pinLedRed, LOW);
+	digitalWrite(pinLedBlue, LOW);
+	digitalWrite(pinLedGreen, LOW);
+
+	if (!modeLedOn) return;
+
+	uint8_t *leds;
+	leds = adjustmentLedModes[mode];
+	for (int i = 0; leds[i] != 0; i++) {
+		digitalWrite(leds[i], HIGH);
+	}
+}
+
+void nextMode() {
+	mode = (mode == DELAY) ? NORMAL : (modeType) ((int)mode + 1);
+}
+
+//–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+void adjustParameters() {
+	nextMode();
+	int timerId = adjustmentTimer.setInterval(250, &modeLightsOn);
+	printf("Entering Parameter Adjustment MENU, timer created %d\n", timerId);
+	while (mode != NORMAL) {
+		int delta = rotary.rotaryDelta();
+		if (delta != 0) {
+			printf("adjusting by %d ", delta);
+			switch (mode) {
+			case SONAR:
+				sonar.setDistance(sonar.getDistance() + delta);
+				printf("SONAR distance to %d\n", sonar.getDistance());
+				break;
+			case MOTION:
+				motion.setPause(motion.getPause() + delta * 10);
+				printf("Adjusting MOTION pause to %d\n", motion.getPause());
+				break;
+			case LIGHT:
+				light.setThreshold(light.getThreshold() + delta);
+				printf("Adjusting LIGHT threshold to %d\n", light.getThreshold());
+				break;
+			case DELAY:
+				setOccupancyGracePeriod(occupancyGracePeriod + delta*10);
+				printf("Adjusting Occupancy Grace Period to %d\n", occupancyGracePeriod);
+				break;
+			default:
+				printf("Unknown mode\n");
+				mode = NORMAL;
+			}
+		}
+
+		if (rotary.buttonClicked()) {
+			nextMode();
+		}
+
+		adjustmentTimer.run();
+	}
+	adjustmentTimer.deleteTimer(timerId);
+}
+
+#endif
+
 //–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 void setup(void) {
 	Serial.begin(57600);
+
+#ifdef ROTARY_CONTROL
+	rotary.begin();
+#endif
 
 	printf_begin();
 	printf("\nBathroom Occupancy Notification Module: Transmit #%d!\n", me);
@@ -176,16 +279,16 @@ void setup(void) {
 	radio.openWritingPipe(mySender.pipe);
 	radio.printDetails();
 
-	pinMode(pinStatusLed, OUTPUT);
-	pinMode(pinMotionLed, OUTPUT);
-	pinMode(pinSonarLed, OUTPUT);
+	pinMode(pinLedBlue, OUTPUT);
+	pinMode(pinLedGreen, OUTPUT);
+	pinMode(pinLedRed, OUTPUT);
 
 	motion.init();
 
 	resetOccupancy();
 
 	timer.setInterval(990,  &showStatus);
-	timer.setInterval(2000,  &sendStatus);
+	timer.setInterval(2000, &sendStatus);
 
 	timer.setInterval(110, 	&detectLight);
 	timer.setInterval(220,  &detectMotion);
@@ -197,4 +300,10 @@ void setup(void) {
 
 void loop(void) {
 	timer.run();
+
+#ifdef ROTARY_CONTROL
+	if (rotary.buttonClicked() && mode == NORMAL) {
+		adjustParameters();
+	}
+#endif
 }

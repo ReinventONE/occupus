@@ -31,6 +31,8 @@ public:
 	void init();
 	bool detectedNonRetriggering();
 	bool detected();
+	void setPause(int pause);
+	int getPause();
 private:
 	long unsigned int _lowIn, _pause; // time of the transition from high to LOW
 	boolean _lockLow, _lastDetection,_takeLowTime;

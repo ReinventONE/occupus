@@ -17,7 +17,9 @@ Sonar::Sonar(uint8_t triggerPin,
 	_lastCheckMs = 0;
 	_lastDetectedValue = false;
 	_detectDistance = detectDistance;
+	_maxDistance = maxDistance;
 }
+
 
 bool Sonar::detected() {
 	unsigned long now = millis();
@@ -31,4 +33,11 @@ bool Sonar::detected() {
 		}
 	}
 	return _lastDetectedValue;
+}
+
+void Sonar::setDistance(unsigned int distance) {
+	_detectDistance = constrain(distance, 0, _maxDistance);
+}
+unsigned int Sonar::getDistance() {
+	return _detectDistance;
 }

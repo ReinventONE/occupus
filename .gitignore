@@ -1,6 +1,8 @@
 **/.DS_Store
 **/Resources
 **/arduino
+**/.settings
+**/.ino.cpp
 
 # Compiled Object files
 *.slo

@@ -1,8 +1,11 @@
-**/.DS_Store
-**/Resources
-**/arduino
-**/.settings
+# Eclipse CDT ignores
+**/.cproject
 **/.ino.cpp
+**/.settings
+**/Release
+**/spec.d
+
+**/.DS_Store
 
 # Compiled Object files
 *.slo

@@ -34,13 +34,10 @@
 
 // define either SENDER_0 or SENDER_1 depending on which unit is being
 // worked on
-#define SENDER_0
+#define SENDER_1
 
 #ifdef SENDER_0
 #define ROTARY_CONTROL
-
-// pinA, pinB, pinButton
-RotaryEncoderWithButton rotary(2,3,4);
 
 //// Sender #0
 uint8_t pinLedBlue 		= 6,
@@ -81,6 +78,11 @@ LightSensor light(pinPhotoCell, 250);
 
 RF24 radio(9, 10);
 SimpleTimer timer(1), adjustmentTimer(2);
+
+#ifdef ROTARY_CONTROL
+// pinA, pinB, pinButton
+RotaryEncoderWithButton rotary(2,3,4);
+#endif
 
 typedef struct OccupancyStruct {
 	bool occupied;

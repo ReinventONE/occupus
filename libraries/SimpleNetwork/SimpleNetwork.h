@@ -3,9 +3,9 @@
  *
  * Supports up to 5 clients sending data to a single collector,
  * typically sensor data. Data packet exchanged is a single
- * 32-bit value of type "unsigned long int". First byte
- * is used to id the sender, and the remaining 7 bytes can be
- * used by the client to send data.
+ * 64-bit value of type "unsigned long int". First 4 bits (half a byte)
+ * is used to identify the sender, and the remaining 60 bits can be
+ * used by the client to send any data.
  *
  * RF24-based network of up to 5 senders, and 1 receiver.
  *
@@ -39,13 +39,15 @@ typedef struct clientInfoStruct {
 } client;
 
 
-const client CLIENTS[5] = {
+static client clients[5] = {
 	{ false, 0xF0F0F0F0E0LL, 0x0 },
 	{ false, 0xF0F0F0F0E1LL, 0x1 },
 	{ false, 0xF0F0F0F0E2LL, 0x2 },
 	{ false, 0xF0F0F0F0E3LL, 0x3 },
 	{ false, 0xF0F0F0F0E4LL, 0x4 }
 };
+
+const byte ID_MASK = 0xF;
 
 typedef void(*callback)(uint8_t clientId, uint64_t data);
 
@@ -58,14 +60,18 @@ public:
 
 class SimpleNetworkClient : SimpleNetwork {
 public:
-	SimpleNetworkClient(uint8_t radioPin1, uint8_t radioPin2);
+	SimpleNetworkClient(uint8_t radioPin1, uint8_t radioPin2, uint8_t clientId);
+	void begin();
 	void send(uint64_t data);
+private:
+	uint8_t id;
 };
 
 class SimpleNetworkServer : SimpleNetwork {
 public:
 	SimpleNetworkServer(uint8_t radioPin1, uint8_t radioPin2);
-	void listen(callback* callback);
+	void listen(callback callback);
+
 };
 
 #endif /* SIMPLENETWORK_H_ */

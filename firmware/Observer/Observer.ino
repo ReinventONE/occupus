@@ -1,5 +1,5 @@
 /*
- * rf24_transmit.ino
+ * Observer.ino
  *
  * Created on: Aug 9, 2014
  *      Author: Konstantin Gredeskoul
@@ -8,14 +8,14 @@
  *
  * Connections for RF24:
  *
-	 GND		GND
-	 3V3		3V3
-	 CE			9
-	 CSN		10
-	 SCK		13
-	 MOSI		11
-	 MISO		12
-
+ *      GND  GND
+ *      3V3  3V3
+ *      CE     9
+ *      CSN   10
+ *      SCK   13
+ *      MOSI  11
+ *      MISO  12
+ *
  * Dependencies:
  *   Encoder, NewPing, RF24, RotaryEncoderWithButton, SimpleTimer, SPI
  */

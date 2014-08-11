@@ -1,19 +1,14 @@
 /*
- * This code is based on the example by
- Copyright (C) 2011 J. Coliz <maniacbug@ymail.com>
- */
-
-/*
- * Connections:
+ * To configure RF24 with Arduino use the following connections:
  *
- GND		GND
- 3V3		3V3
- CE		9
- CSN		10
- SCK		13
- MOSI	11
- MISO	12
-
+ *      GND  GND
+ *      3V3  3V3
+ *      CE     9
+ *      CSN   10
+ *      SCK   13
+ *      MOSI  11
+ *      MISO  12
+ *
  */
 
 #include <SPI.h>

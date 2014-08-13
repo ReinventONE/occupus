@@ -34,10 +34,10 @@
 
 // define either SENDER_0 or SENDER_1 depending on which unit is being
 // worked on
-#define SENDER_1
+#define SENDER_0
 
 #ifdef SENDER_0
-#define ROTARY_CONTROL
+//#define ROTARY_CONTROL
 
 //// Sender #0
 uint8_t pinLedBlue 		= 6,
@@ -278,6 +278,8 @@ void setup(void) {
 	radio.begin();
 	radio.setRetries(15, 15);
 	radio.setPayloadSize(8);
+	printf("opening for writing pipe: #%d => [%X], ", me, mySender.pipe);
+
 	radio.openWritingPipe(mySender.pipe);
 	radio.printDetails();
 

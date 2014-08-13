@@ -69,7 +69,7 @@
 		<link>
 			<name>arduino/variant</name>
 			<type>2</type>
-			<locationURI>ArduinoPinPath/standard</locationURI>
+			<locationURI>ArduinoPinPath/eightanaloginputs</locationURI>
 		</link>
 	</linkedResources>
 	<variableList>

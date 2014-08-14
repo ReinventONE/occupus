@@ -14,8 +14,12 @@ Here is a prototype Sensor Module in action.
 
 
 
+## Display Module
 
+Display module has ability to provide status over the TCP/IP network. Using Ethernet Arduino Shield
+we are able to run a small HTTP server that serves JSON.
 
+![Display Module JSON Response](images/poop-json.jpg)
 
 ## Contributing
 

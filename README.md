@@ -21,6 +21,33 @@ we are able to run a small HTTP server that serves JSON.
 
 ![Display Module JSON Response](images/poop-json.jpg)
 
+### Curl Session
+
+```bash
+→ curl -v http://172.16.0.90/ --header 'Content-Type: application/json' --header 'Accept: application/json'
+
+> GET / HTTP/1.1
+> User-Agent: curl/7.30.0
+> Host: 172.16.0.90
+> Content-Type: application/json
+> Accept: application/json
+>
+< HTTP/1.1 200 OK
+< Content-Type: application/json
+< Accept: application/json
+< Connection: close
+< Refresh: 3
+<
+[{
+	"id": 1,
+	"connected": true,
+	"status": false
+}, {
+	"id": 2,
+	"connected": false
+}]
+```
+
 ## Contributing
 
 1. Fork it

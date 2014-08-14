@@ -1,82 +1,93 @@
 /*
- * To configure RF24 with Arduino use the following connections:
+ * RF24 radio:
  *
- *      GND  GND
- *      3V3  3V3
- *      CE     9
- *      CSN   10
+ *      GND   GND
+ *      3V3   3V3
+ *      CE    4
+ *      CSN   5
  *      SCK   13
  *      MOSI  11
  *      MISO  12
  *
+ * Ethernet Shield:
+ * 		10, 11, 12, 13
+ *
+ * Display LEDs:
+ * 		6, 7
+ *
  */
-
 #include <SPI.h>
 #include "nRF24L01.h"
 #include "RF24.h"
 #include "printf.h"
 #include <SimpleTimer.h>
+#include "ObserverInfo.h"
+
+// comment this out if you do not have Ethernet Shield
+#define ETHERNET_SHIELD
+
+#ifdef ETHERNET_SHIELD
+#include <Ethernet.h>
+#include "HTTPServer.h"
+
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+HTTPServer server(mac);
+
+#endif
 
 #define INACTIVITY_TIMEOUT 5000
-//
-// Hardware configuration
-//
 
-// Set up nRF24L01 radio on SPI bus plus pins 9 & 10
-
-RF24 radio(9, 10);
+RF24 radio(4, 5);
 SimpleTimer timer(1);
-typedef struct publisherInfoStruct {
-	uint8_t led;
-	bool status;
-	bool connected;
-	uint64_t pipe;
-	uint8_t senderId;
-	unsigned long lastTransmissionAt;
-	uint8_t errorBlinkState;
-} publisherInfo;
 
-publisherInfo publisher[] = {
-		{ 7, false, false, 0xF0F0F0F0E1LL, 0x10, 0 },
-		{ 8, false, false, 0xF0F0F0F0D2LL, 0x20, 0 }
+observerInfo observers[] = {
+		{ 6, false, false, 0xF0F0F0F0E1LL, 0x10, 0 },
+		{ 7, false, false, 0xF0F0F0F0D2LL, 0x20, 0 }
 };
 
-static const uint8_t transmitters = sizeof(publisher) / sizeof(publisherInfo);
+static const uint8_t numObservers = sizeof(observers) / sizeof(observerInfo);
 
 void blinkError(int timerId) {
-	for (int i = 0; i < transmitters; i++) {
-		if (!publisher[i].connected) {
-			publisher[i].errorBlinkState++;
-			publisher[i].errorBlinkState %= 5;
-			digitalWrite(publisher[i].led,
-					publisher[i].errorBlinkState == 0 ? HIGH : LOW);
+	for (int i = 0; i < numObservers; i++) {
+		if (!observers[i].connected) {
+			observers[i].errorBlinkState++;
+			observers[i].errorBlinkState %= 5;
+			digitalWrite(observers[i].led,
+					observers[i].errorBlinkState == 0 ? HIGH : LOW);
 		}
 	}
 }
 
 void showStatus(int timerId) {
-	for (int i = 0; i < transmitters; i++) {
-		if (publisher[i].connected) {
-			digitalWrite(publisher[i].led, publisher[i].status ? HIGH : LOW);
+	for (int i = 0; i < numObservers; i++) {
+		if (observers[i].connected) {
+			digitalWrite(observers[i].led, observers[i].status ? HIGH : LOW);
 		}
 		printf("transmitter %d is %7s, status = %3s\n", i + 1,
-				publisher[i].connected ? "online" : "offline",
-				publisher[i].status ? "ON" : "OFF");
+				observers[i].connected ? "online" : "offline",
+				observers[i].status ? "ON" : "OFF");
 	}
 	printf("\n");
 }
 
 void resetDeadRadios(int timerId) {
-	for (int i = 0; i < transmitters; i++) {
-		if (millis() - publisher[i].lastTransmissionAt > INACTIVITY_TIMEOUT
-				&& publisher[i].status) {
+	for (int i = 0; i < numObservers; i++) {
+		if (millis() - observers[i].lastTransmissionAt > INACTIVITY_TIMEOUT
+				&& observers[i].status) {
 			printf("resetting dead radio %d: last heard %d seconds ago\n",
 					i+1,
-					(int)((millis() - publisher[i].lastTransmissionAt) / 1000));
-			publisher[i].status = false;
-			publisher[i].connected = false;
+					(int)((millis() - observers[i].lastTransmissionAt) / 1000));
+			observers[i].status = false;
+			observers[i].connected = false;
 		}
 	}
+}
+
+
+void serveJSON(int timerId) {
+#ifdef ETHERNET_SHIELD
+	server.serveJSON(observers, numObservers);
+#endif
 }
 
 void setup(void) {
@@ -92,21 +103,25 @@ void setup(void) {
 	// optionally, reduce the payload size.  seems to improve reliability
 	radio.setPayloadSize(8);
 
-	printf("opening for reading: ");
-	for (int i = 0; i < transmitters; i++) {
-		printf("#%d => [%X], ", i+1,
-				publisher[i].pipe);
-		radio.openReadingPipe(i + 1, publisher[i].pipe);
-		pinMode(publisher[i].led, OUTPUT);
+	printf("Opening for reading: ");
+	for (int i = 0; i < numObservers; i++) {
+		printf("#%d => [%X], ", i+1, (unsigned int) observers[i].pipe);
+		radio.openReadingPipe(i + 1, observers[i].pipe);
+		pinMode(observers[i].led, OUTPUT);
 	}
 	printf("\n");
 
 	radio.startListening();
 	radio.printDetails();
 
-	timer.setInterval(2000, &resetDeadRadios);
-	timer.setInterval(990,  &showStatus);
-	timer.setInterval(200,  &blinkError);
+#ifdef ETHERNET_SHIELD
+	server.begin();
+#endif
+
+	timer.setInterval(2000,  &resetDeadRadios);
+	timer.setInterval( 990,  &showStatus);
+	timer.setInterval( 200,  &blinkError);
+	timer.setInterval( 980,  &serveJSON);
 }
 void loop(void) {
 
@@ -118,11 +133,11 @@ void loop(void) {
 			// Fetch the payload, and see if this was the last one.
 			done = radio.read(&data, sizeof(data));
 			// printf("got data [%d]\n", data);
-			for (int i = 0; i < transmitters; i++) {
-				if ((data & publisher[i].senderId) == publisher[i].senderId) {
-					publisher[i].connected = true;
-					publisher[i].status = (data & 1);
-					publisher[i].lastTransmissionAt = millis();
+			for (int i = 0; i < numObservers; i++) {
+				if ((data & observers[i].senderId) == observers[i].senderId) {
+					observers[i].connected = true;
+					observers[i].status = (data & 1);
+					observers[i].lastTransmissionAt = millis();
 					// printf("status for %d is %d", i, publisher[i].status);
 				}
 			}

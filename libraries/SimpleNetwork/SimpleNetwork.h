@@ -32,14 +32,15 @@
 #include "nRF24L01.h"
 #include "RF24.h"
 
-typedef struct clientInfoStruct {
+typedef struct observerInfoStruct {
 	bool isConnected;
 	uint64_t pipeId;
 	uint8_t senderId;
-} client;
+} observerType;
 
+#define MAX_OBSERVERS 5
 
-static client clients[5] = {
+static observerType clients[MAX_OBSERVERS] = {
 	{ false, 0xF0F0F0F0E0LL, 0x0 },
 	{ false, 0xF0F0F0F0E1LL, 0x1 },
 	{ false, 0xF0F0F0F0E2LL, 0x2 },
@@ -62,7 +63,7 @@ class SimpleNetworkClient : SimpleNetwork {
 public:
 	SimpleNetworkClient(uint8_t radioPin1, uint8_t radioPin2, uint8_t clientId);
 	void begin();
-	void send(uint64_t data);
+	bool send(uint64_t data);
 private:
 	uint8_t id;
 };

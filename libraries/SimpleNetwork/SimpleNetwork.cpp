@@ -14,7 +14,6 @@ SimpleNetwork::SimpleNetwork(uint8_t radioPin1, uint8_t radioPin2) {
 }
 
 void SimpleNetwork::begin() {
-
 	radio->begin();
 	radio->setRetries(15, 15);
 	radio->setPayloadSize(8);  // sending 8 bytes, or 64 bits
@@ -33,16 +32,17 @@ SimpleNetworkClient::SimpleNetworkClient(
 
 void SimpleNetworkClient::begin() {
 	SimpleNetwork::begin();
-
+	printf("%d >> opening for writing pipe: [%X]\n", id, clients[id].pipeId);
 	radio->openWritingPipe(clients[id].pipeId);
 	radio->printDetails();
 
 }
 
-void SimpleNetworkClient::send(uint64_t data) {
+bool SimpleNetworkClient::send(uint64_t data) {
 	// 4 bytes for id, then the rest is from the data.
 	data = (data << 4) | id;
-	radio->write(&data, sizeof(uint64_t));
+	printf("%d >> sending data [%d]\n", id, data);
+	return radio->write(&data, sizeof(uint64_t));
 }
 
 //–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -52,7 +52,7 @@ SimpleNetworkServer::SimpleNetworkServer(
 		uint8_t radioPin2) :
 				SimpleNetwork(radioPin1, radioPin2) {
 
-	for (int i = 0; i < 5; i++ ){
+	for (int i = 0; i < MAX_OBSERVERS; i++ ){
 		radio->openReadingPipe(i + 1, clients[i].pipeId);
 	}
 

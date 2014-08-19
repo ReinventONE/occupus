@@ -29,10 +29,8 @@
 #ifdef ETHERNET_SHIELD
 #include <Ethernet.h>
 #include "HTTPServer.h"
-
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 HTTPServer server(mac);
-
 #endif
 
 #define INACTIVITY_TIMEOUT 5000
@@ -85,9 +83,7 @@ void resetDeadRadios(int timerId) {
 
 
 void serveJSON(int timerId) {
-#ifdef ETHERNET_SHIELD
 	server.serveJSON(observers, numObservers);
-#endif
 }
 
 void setup(void) {
@@ -116,12 +112,12 @@ void setup(void) {
 
 #ifdef ETHERNET_SHIELD
 	server.begin();
+	timer.setInterval( 980,  &serveJSON);
 #endif
 
 	timer.setInterval(2000,  &resetDeadRadios);
 	timer.setInterval( 990,  &showStatus);
 	timer.setInterval( 200,  &blinkError);
-	timer.setInterval( 980,  &serveJSON);
 }
 void loop(void) {
 

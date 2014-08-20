@@ -37,11 +37,11 @@
 #define SENDER_0
 
 #ifdef SENDER_0
-//#define ROTARY_CONTROL
+#define ROTARY_CONTROL
 
 //// Sender #0
-uint8_t pinLedBlue 		= 6,
-		pinLedGreen 	= 7,
+uint8_t pinLedBlue 		= 7,
+		pinLedGreen 	= 6            ,
 		pinLedRed 		= 5,
 
 		pinIRInput 		= A1,
@@ -71,10 +71,10 @@ Sonar sonar(
 		pinSonarEcho,
 		200,  // Maximum distance we want to ping for (in centimeters).
 			  // Maximum sensor distance is rated at 400-500cm.
-		90); // Recognize objects within this many centimeters
+		90);  // Recognize objects within this many centimeters
 
 MotionSensor motion(pinIRInput, 5000);
-LightSensor light(pinPhotoCell, 250);
+LightSensor light(pinPhotoCell, 200, true);
 
 RF24 radio(9, 10);
 SimpleTimer timer(1), adjustmentTimer(2);
@@ -122,16 +122,31 @@ void setOccupancyGracePeriod(unsigned int period) {
 // Timers
 
 void showStatus(int timerId) {
-	digitalWrite(pinLedBlue, occupancy.occupied ? HIGH : LOW);
-//	digitalWrite(pinLedGreen, occupancy.motionDetected ? HIGH : LOW);
-//	digitalWrite(pinLedRed, occupancy.sonarDetected ? HIGH : LOW);
+	if (mySender.connected) {
+		digitalWrite(pinLedBlue, occupancy.occupied ? HIGH : LOW);
+	} else {
+		digitalWrite(pinLedBlue, LOW);
+		digitalWrite(pinLedRed, HIGH);
+		delay(200);
+		digitalWrite(pinLedRed, LOW);
+	}
 }
 
 void sendStatus(int timerId) {
 	unsigned long data = occupancy.occupied | mySender.senderId;
 	bool ok = radio.write(&data, sizeof(data));
-	if (!ok)
+	if (!ok) {
+		mySender.connected = false;
 		printf("error sending data over RF24\n");
+		// try sending again
+		delay(20);
+		if (radio.write(&data, sizeof(data))) {
+			mySender.connected = true;
+			printf("RF24 connection has been restored\n");
+		}
+	} else {
+		mySender.connected = true;
+	}
 }
 
 void detectLight(int timerId) {
@@ -147,10 +162,11 @@ void detectSonar(int timerId) {
 }
 
 void analyzeOccupancy(int timerId) {
-	printf("INFO: status: Lights On?: %s, Motion?: %s, Sonar?: %s\n",
+	printf("INFO: status: Lights On?: %s, Motion?: %s, Sonar?: %s, Light Reading: %d\n",
 			(occupancy.lightDetected ? "YES" : "NO"),
 			(occupancy.motionDetected ? "YES" : "NO"),
-			(occupancy.sonarDetected ? "YES" : "NO"));
+			(occupancy.sonarDetected ? "YES" : "NO"),
+			analogRead(pinPhotoCell                                                                                                                                                                                                                   ));
 	bool isSomeoneThere = occupancy.lightDetected
 			&& (occupancy.motionDetected || occupancy.sonarDetected);
 	unsigned long now = millis();
@@ -263,23 +279,25 @@ void adjustParameters() {
 
 #endif
 
+
 //–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 void setup(void) {
-	Serial.begin(57600);
+	Serial.begin(9600);
 
 #ifdef ROTARY_CONTROL
 	rotary.begin();
 #endif
 
 	printf_begin();
+
 	printf("\nBathroom Occupancy Notification Module: Transmit #%d!\n", me);
 
 	radio.begin();
 	radio.setRetries(15, 15);
 	radio.setPayloadSize(8);
-	printf("opening for writing pipe: #%d => [%X], ", me, mySender.pipe);
 
+	printf("opening for writing pipe: #%d => [%X], ", me, mySender.pipe);
 	radio.openWritingPipe(mySender.pipe);
 	radio.printDetails();
 

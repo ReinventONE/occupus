@@ -26,7 +26,8 @@ public:
 			// pin sensor is attached to
 			uint8_t pin,
 			// threshold between 0 and 1023 below which we are considered dark
-			unsigned int threshold);
+			unsigned int threshold,
+			bool inverted); // if high values show dark light, it's inverted
 	void init();
 	bool lightsOn();
 	void setThreshold(unsigned int threshold);
@@ -34,6 +35,7 @@ public:
 private:
 	unsigned int _threshold; // time of the transition from high to LOW
 	uint8_t _pin;
+	bool _inverted;
 };
 
 #endif /* LIGHTSENSOR_H_ */

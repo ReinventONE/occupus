@@ -39,8 +39,8 @@ RF24 radio(4, 5);
 SimpleTimer timer(1);
 
 observerInfo observers[] = {
-		{ 6, false, false, 0xF0F0F0F0E1LL, 0x10, 0 },
-		{ 7, false, false, 0xF0F0F0F0D2LL, 0x20, 0 }
+		{ 6, false, false, 0xF0F0F0F0E1LL, 0x10, 0, 0, 0, "downstairs"},
+		{ 7, false, false, 0xF0F0F0F0D2LL, 0x20, 0, 0, 0, "upstairs"}
 };
 
 static const uint8_t numObservers = sizeof(observers) / sizeof(observerInfo);
@@ -132,7 +132,11 @@ void loop(void) {
 			for (int i = 0; i < numObservers; i++) {
 				if ((data & observers[i].senderId) == observers[i].senderId) {
 					observers[i].connected = true;
-					observers[i].status = (data & 1);
+					bool status = (data & 1);
+					if (observers[i].status != status) {
+						observers[i].lastStateChangeAt = millis();
+						observers[i].status = status;
+					}
 					observers[i].lastTransmissionAt = millis();
 					// printf("status for %d is %d", i, publisher[i].status);
 				}

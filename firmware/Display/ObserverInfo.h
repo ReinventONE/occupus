@@ -18,7 +18,9 @@ typedef struct observerInfoStruct {
 	uint64_t pipe;
 	uint8_t senderId;
 	unsigned long lastTransmissionAt;
+	unsigned long lastStateChangeAt;
 	uint8_t errorBlinkState;
+	const char *name;
 } observerInfo;
 
 

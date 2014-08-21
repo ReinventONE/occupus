@@ -26,6 +26,7 @@ private:
 	char _buffer[128];
 	uint8_t *_mac;
 	char *jsonField(const char *field, int value, bool last);
+	char *jsonField(const char *field, const char *value, bool last);
 	char *jsonField(const char *field, bool value, bool last);
 };
 

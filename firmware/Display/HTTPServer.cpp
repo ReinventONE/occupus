@@ -45,9 +45,11 @@ void HTTPServer::serveJSON(observerInfo observers[], int numObservers) {
 					client.println("[{");
 					for (int i = 0; i < numObservers; i++) {
 						client.print(jsonField("id", i + 1, false));
+						client.print(jsonField("name", observers[i].name, false));
+						client.print(jsonField("secondsSinceLastChange", (int)((millis() - observers[i].lastStateChangeAt) / 1000), false));
 						client.print(jsonField("connected", observers[i].connected, !observers[i].connected));
 						if (observers[i].connected) {
-							client.print(jsonField("status", observers[i].status, true));
+							client.print(jsonField("occupied", observers[i].status, true));
 						}
 						if (i < (numObservers - 1)) {
 							client.println("}, {");
@@ -75,6 +77,11 @@ void HTTPServer::serveJSON(observerInfo observers[], int numObservers) {
 
 char *HTTPServer::jsonField(const char *field, int value, bool last) {
 	sprintf(_buffer, "\t\"%s\": %d%s\n", field, value, last ? "" : ",");
+	return _buffer;
+}
+
+char *HTTPServer::jsonField(const char *field, const char *value, bool last) {
+	sprintf(_buffer, "\t\"%s\": \"%s\"%s\n", field, value, last ? "" : ",");
 	return _buffer;
 }
 

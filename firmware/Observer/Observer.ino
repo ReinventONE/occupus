@@ -32,12 +32,14 @@
 #include <RotaryEncoderWithButton.h>
 #include <SimpleTimer.h>
 
-// define either SENDER_0 or SENDER_1 depending on which unit is being
+// define either SENDER_DOWNSTAIRS or SENDER_UPSTAIRS depending on which unit is being
 // worked on
-#define SENDER_0
+#define SENDER_DOWNSTAIRS
 
-#ifdef SENDER_0
+#ifdef SENDER_DOWNSTAIRS
+// big sensor with rotary control for main floor bathroom
 #define ROTARY_CONTROL
+#define SONAR_DISTANCE    130
 
 //// Sender #0
 uint8_t pinLedBlue 		= 7,
@@ -52,11 +54,13 @@ uint8_t pinLedBlue 		= 7,
 const uint8_t me 		= 0; // 0 or 1 (offset into senders[]) and pipes[]
 #endif
 
-#ifdef SENDER_1
+#ifdef SENDER_UPSTAIRS
 // Sender #1
-uint8_t pinLedBlue 		= 2,
-		pinLedGreen		= 3,
-		pinLedRed 		= 7,
+#define SONAR_DISTANCE    100
+
+uint8_t pinLedBlue 		= 7,
+		pinLedGreen		= 2,
+		pinLedRed 		= 3,
 
 		pinIRInput 		= 6,
 		pinPhotoCell 	= A0,
@@ -69,19 +73,24 @@ const uint8_t me 		= 1; // 0 or 1 (offset into senders[]) and pipes[]
 Sonar sonar(
 		pinSonarTrigger,
 		pinSonarEcho,
-		200,  // Maximum distance we want to ping for (in centimeters).
+		SONAR_DISTANCE * 2,// Maximum distance we want to ping for (in centimeters).
 			  // Maximum sensor distance is rated at 400-500cm.
-		90);  // Recognize objects within this many centimeters
+		SONAR_DISTANCE);   // Recognize objects within this many centimeters
 
 MotionSensor motion(pinIRInput, 5000);
-LightSensor light(pinPhotoCell, 200, true);
+#ifdef SENDER_DOWNSTAIRS
+LightSensor light(pinPhotoCell, 250, true);
+#elif defined(SENDER_UPSTAIRS)
+LightSensor light(pinPhotoCell, 300, false);
+#endif
 
 RF24 radio(9, 10);
-SimpleTimer timer(1), adjustmentTimer(2);
+SimpleTimer timer(1);
 
 #ifdef ROTARY_CONTROL
 // pinA, pinB, pinButton
 RotaryEncoderWithButton rotary(2,3,4);
+SimpleTimer  adjustmentTimer(2);
 #endif
 
 typedef struct OccupancyStruct {
@@ -94,7 +103,7 @@ typedef struct OccupancyStruct {
 	bool sonarDetected;
 } occupancyStatus;
 
-unsigned int occupancyGracePeriod = 5000; // keep status as "occupied" after it goes off to avoid flickering
+unsigned int occupancyGracePeriod = 10000; // keep status as "occupied" after it goes off to avoid flickering
 occupancyStatus occupancy;
 
 typedef struct senderInfoStruct {
@@ -124,8 +133,10 @@ void setOccupancyGracePeriod(unsigned int period) {
 void showStatus(int timerId) {
 	if (mySender.connected) {
 		digitalWrite(pinLedBlue, occupancy.occupied ? HIGH : LOW);
+		digitalWrite(pinLedGreen, occupancy.occupied ? LOW : HIGH);
 	} else {
 		digitalWrite(pinLedBlue, LOW);
+		digitalWrite(pinLedGreen, LOW);
 		digitalWrite(pinLedRed, HIGH);
 		delay(200);
 		digitalWrite(pinLedRed, LOW);
@@ -297,7 +308,7 @@ void setup(void) {
 	radio.setRetries(15, 15);
 	radio.setPayloadSize(8);
 
-	printf("opening for writing pipe: #%d => [%X], ", me, mySender.pipe);
+	printf("opening for writing pipe: #%d => [%X], ", me, (unsigned int) mySender.pipe);
 	radio.openWritingPipe(mySender.pipe);
 	radio.printDetails();
 

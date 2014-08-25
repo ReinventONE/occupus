@@ -8,9 +8,42 @@ Configuration::Configuration(
 	_rotary = pRotary;
 }
 
+void Configuration::init() {
+	readFromEPROM();
+}
+
+void Configuration::readFromEPROM() {
+	// start reading from position memBase (address 0) of the EEPROM. Set maximumSize to EEPROMSizeUno
+	// Writes before membase or beyond EEPROMSizeUno will only give errors when _EEPROMEX_DEBUG is set
+	EEPROM.setMemPool(EEPROM_MEM_BASE, EEPROMSizeNano);
+
+	uint32_t secret = EEPROM.readLong(EEPROM_SECRET_ADDRESS);
+	if (secret == EEPROM_SECRET_VALUE) {
+		EEPROM.readBlock(EEPROM_CONFIG_ADDRESS, _eePromConfig);
+		printf("EEPROM: L=%d M=%d D=%d G=%d\n",
+				(int) _eePromConfig.lightThreshold,
+				(int) _eePromConfig.motionTolerance,
+				(int) _eePromConfig.sonarThreshold,
+				(int) _eePromConfig.occupancyGracePeriod);
+		constrainConfig(&_eePromConfig);
+		memcpy(cfg, &_eePromConfig, sizeof(_eePromConfig));
+	} else {
+		printf("Blank EEPROM, secret=%d\n", secret);
+	}
+}
+
+void Configuration::saveToEPROM() {
+	memcpy(&_eePromConfig, cfg, sizeof(_eePromConfig));
+	EEPROM.writeLong(EEPROM_SECRET_ADDRESS, EEPROM_SECRET_VALUE);
+	EEPROM.updateBlock(EEPROM_CONFIG_ADDRESS, _eePromConfig);
+}
+
+
 bool Configuration::configure(configStatusCallback callback) {
 	if (_rotary->buttonClicked() && mode == NORMAL) {
-		enterConfiguration(callback);
+		if (enterConfiguration(callback)) {
+			saveToEPROM();
+		}
 		return true;
 	} else {
 		return false;
@@ -22,37 +55,41 @@ void Configuration::nextMode(configStatusCallback callback) {
 	if (callback != NULL) {	callback(); }
 }
 
-void Configuration::enterConfiguration(configStatusCallback callback) {
+void Configuration::constrainConfig(configType *config) {
+	config->sonarThreshold = constrain(config->sonarThreshold, 10, 500);
+	config->motionTolerance = constrain(config->motionTolerance, 100, 30000);
+	config->lightThreshold = constrain(config->lightThreshold, 0, 1023);
+	config->occupancyGracePeriod = constrain(config->occupancyGracePeriod, 1, 60);
+}
+
+
+bool Configuration::enterConfiguration(configStatusCallback callback) {
 	nextMode(callback);
+	bool changed = false;
 	while (mode != NORMAL) {
 		int delta = _rotary->rotaryDelta();
 		if (delta != 0) {
-			printf("=> delta value is %d\n", delta);
+			changed = true;
 			switch (mode) {
 			case SONAR:
 				cfg->sonarThreshold += delta;
-				cfg->sonarThreshold = constrain(cfg->sonarThreshold, 10, 500);
-				printf("Set SONAR threshold to %d\n", cfg->sonarThreshold);
 				break;
 			case MOTION:
-				cfg->motionTolerance += delta;
-				cfg->motionTolerance = constrain(cfg->motionTolerance, 100, 10000);
-				printf("Set MOTION pause to %d\n", (int) cfg->motionTolerance);
+				cfg->motionTolerance += 100 * delta;
 				break;
 			case LIGHT:
 				cfg->lightThreshold += delta;
-				cfg->lightThreshold = constrain(cfg->lightThreshold, 0, 1023);
-				printf("Set LIGHT threshold to %d\n", cfg->lightThreshold);
 				break;
 			case GRACE:
-				cfg->occupancyGracePeriod += (100 * delta);
-				cfg->occupancyGracePeriod = constrain(cfg->occupancyGracePeriod, 1000, 60000);
-				printf("Set Occupancy Grace Period to %d\n", (int) cfg->occupancyGracePeriod);
+				if (cfg->occupancyGracePeriod < 10) {
+					delta = (delta / abs(delta));
+				}
+				cfg->occupancyGracePeriod += delta;
 				break;
 			default:
-				printf("Unknown mode\n");
 				mode = NORMAL;
 			}
+			constrainConfig(cfg);
 			if (callback != NULL) {	callback(); }
 		}
 
@@ -60,4 +97,5 @@ void Configuration::enterConfiguration(configStatusCallback callback) {
 			nextMode(callback);
 		}
 	}
+	return changed;
 }

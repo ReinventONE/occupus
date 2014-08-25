@@ -23,7 +23,6 @@
 
 #include "MotionSensor.h"
 
-
 MotionSensor::MotionSensor(uint8_t pirPin, long unsigned int pause) {
 	_pirPin = pirPin;
 	_pause = pause;
@@ -34,7 +33,7 @@ MotionSensor::MotionSensor(uint8_t pirPin, long unsigned int pause) {
 void MotionSensor::init(int calibrationWaitMillis) {
 	pinMode(_pirPin, INPUT);
 	digitalWrite(_pirPin, LOW);
-	printf("initializing motion sensor, please wait %d seconds...\n", calibrationWaitMillis / 1000);
+	printf("Calibrating %d sec..\n", calibrationWaitMillis / 1000);
 	delay(calibrationWaitMillis);
 }
 

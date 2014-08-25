@@ -17,7 +17,14 @@
  *      MISO  12
  *
  * Dependencies:
- *   Encoder, NewPing, RF24, RotaryEncoderWithButton, SimpleTimer, SPI
+ *   EEPROMEx					(saving configuration to non-volatile RAM)
+ *   Encoder                    (using rotary encoder for config)
+ *   NewPing                    (Sonar)
+ *   RF24                       (Wireless RF24 Radio)
+ *   RotaryEncoderWithButton    (high level rotary encoder abstraction)
+ *   SimpleTimer                (use timers and callbacks)
+ *   SoftwareSerial             (output state and options to Serial LCD)
+ *   SPI                        (communications between components)
  */
 
 #include <SPI.h>
@@ -36,21 +43,15 @@
 
 #include "Configuration.h"
 
+#define HAVE_ROTARY_KNOB
 #define SERIAL_LCD
 
 // define either SENDER_DOWNSTAIRS or
 //               SENDER_UPSTAIRS depending on which unit is being worked on
 #define SENDER_DOWNSTAIRS
+// #define SENDER_UPSTAIRS
 
 #ifdef SENDER_DOWNSTAIRS
-
-configType cfg = {
-	 220, // light
-	1000, // motion pause
-	 100, // distance
-	5000  // grace
-};
-
 
 //// Sender #0
 uint8_t pinSerialLcdRX	= 8,
@@ -68,29 +69,38 @@ const uint8_t me 		= 0; // 0 or 1 (offset into senders[]) and pipes[]
 #endif
 
 #ifdef SENDER_UPSTAIRS
-
-configType cfg = {
-	 300, // light
-	1000, // motion pause
-	 100, // distance
-	5000  // grace
-};
-
-uint8_t pinLedBlue 		= 7,
-		pinLedGreen		= 2,
+//// Sender #1
+uint8_t pinSerialLcdRX	= 8,
+		pinLedBlue 		= 7,
+		pinLedGreen 	= 2,
 		pinLedRed 		= 3,
 
+		pinPhotoCell	= A0,
 		pinIRInput 		= 6,
-		pinPhotoCell 	= A0,
 		pinSonarTrigger = 5,
-		pinSonarEcho 	= 4;
+		pinSonarEcho 	= 4
+		;
 
 const uint8_t me 		= 1; // 0 or 1 (offset into senders[]) and pipes[]
 #endif
 
+// default values if EEPROM does have anything
+configType cfg = {
+	 250, // light (0 - 1023)
+	5000, // (ms) motion pause (once detected, ignore during next 5s), max 30,000ms.
+	 100, // (cm) sonar distance to recognized objects within, up to 500
+	  15  // (s)  activity timeout, if activity no longer detected but light is on
+	      //      consider room occupied for this many seconds still. Helps if there is a spot
+	      //      that is not accessible in the bathroom, so observer does not see the person.
+};
+
+#ifdef  HAVE_ROTARY_KNOB
 // pinA, pinB, pinButton
 RotaryEncoderWithButton rotary(2,3,4);
 Configuration configuration(&cfg, &rotary);
+#else
+Configuration configuration(&cfg, NULL);
+#endif
 
 #ifdef SERIAL_LCD
 SoftwareSerial LcdSerialDisplay(3, pinSerialLcdRX); // pin 8 = TX, pin 0 = RX (unused)
@@ -165,40 +175,42 @@ void showConfigStatus() {
 	// print status of our configuration
 	switch (configuration.mode) {
 	case SONAR:
-		printf("Distance Sensor, threshold = %d\n", (int) cfg.sonarThreshold);
-		sprintf(buffer, "CFG: Sonar Thres" "Dist (cm) :%d", (int) cfg.sonarThreshold);
-		lcdPrintAt(1, 1, buffer);
+		sprintf(buffer, "CFG: Sonar Thres" "Dist (cm) :%d", cfg.sonarThreshold);
 		break;
 	case MOTION:
-		printf("Motion Sensor, Pause Sensitivity = %d\n", (int) cfg.motionTolerance);
-		sprintf(buffer, "CFG: Motion Sens" "Pause(ms) :%d", (int) cfg.motionTolerance);
-		lcdPrintAt(1, 1, buffer);
+		sprintf(buffer, "CFG: Motion Sens" "Pause(ms) :%d", cfg.motionTolerance);
 		break;
 	case LIGHT:
-		printf("Light Sensor, Current Threshold = %d\n", (int) cfg.lightThreshold);
-		sprintf(buffer, "CFG: Light  Sens" "Threshold :%d", (int) cfg.lightThreshold);
-		lcdPrintAt(1, 1, buffer);
+		sprintf(buffer, "CFG: Light Sens " "Threshold :%d", cfg.lightThreshold);
 		break;
 	case GRACE:
-		printf("Grace Period, in milliseconds after = %d\n", (int) cfg.occupancyGracePeriod);
-		sprintf(buffer, "CFG: Grace      " "Period(ms):%d", (int) cfg.occupancyGracePeriod);
-		lcdPrintAt(1, 1, buffer);
+		sprintf(buffer, "CFG: ExitTimeout" "(Seconds) :%d", cfg.occupancyGracePeriod);
 		break;
 	default:
+		sprintf(buffer,"                 " "             ");
 		configuration.mode = NORMAL;
 	}
+	lcdPrintAt(1, 1, buffer);
+	short offset = 16;
+	char f = buffer[offset]; buffer[offset] = '\0';
+	Serial.print(buffer);
+	Serial.print(" ");
+	buffer[offset] = f;
+	Serial.println(buffer + offset);
 }
 
 void resetOccupancy() {
 	memset(&occupancy, 0x0, sizeof(occupancy));
 }
 
-void saveConfig() {
+// Push configuration from the local config class to each
+// individual module.
+void applyConfig() {
 	sonar.setDistanceThreshold(cfg.sonarThreshold);
 	motion.setPause(cfg.motionTolerance);
 	light.setThreshold(cfg.lightThreshold);
-	lcdPrintAt(1,1, "Saving Config...");
-	delay(500);
+	lcdPrintAt(1,1, "Reading EPROM   " "Configuration");
+	delay(1000);
 }
 //____________________________________________________________________________
 //
@@ -222,13 +234,14 @@ void sendStatus(int timerId) {
 	bool ok = radio.write(&data, sizeof(data));
 	if (!ok) {
 		mySender.connected = false;
-		printf("error sending data over RF24\n");
+		delay(500);
+		Serial.println(F("Error sending data over RF24"));
 		lcdPrintAt(1, 1, "failed to send data over RF24");
 		// try sending again
 		delay(20);
 		if (radio.write(&data, sizeof(data))) {
 			mySender.connected = true;
-			printf("RF24 connection has been restored\n");
+			Serial.println(F("RF24 connection has been restored"));
 			lcdPrintAt(1, 1, "RF24 connection is back");
 		}
 	} else {
@@ -275,13 +288,11 @@ void logCurrentState() {
 }
 
 void analyzeOccupancy(int timerId) {
-
 	// all the logic follows
 	bool someoneMaybeThere = occupancy.motionDetected || occupancy.sonarDetected;
 	unsigned long now = millis();
 	if (someoneMaybeThere && occupancy.lightOn) {
 		if (!occupancy.occupied) {
-			printf("==> Someone entered...\n");
 			occupancy.occupiedAt = now;
 			occupancy.vacatedAt = 0;
 		}
@@ -289,17 +300,16 @@ void analyzeOccupancy(int timerId) {
 		occupancy.wasOccupiedAt = now;
 	} else {
 		if (occupancy.occupied	&&
-				(((now - occupancy.wasOccupiedAt) > cfg.occupancyGracePeriod) ||
+				(((now - occupancy.wasOccupiedAt) > cfg.occupancyGracePeriod * 1000) ||
 				   !occupancy.lightOn)) {
-			printf("==> Someone left, was inside for %d seconds\n",  (int) ((now - occupancy.occupiedAt) / 1000));
+			printf("%d seconds inside\n",  (int) ((now - occupancy.occupiedAt) / 1000));
 			resetOccupancy();
-			occupancy.vacatedAt = now - cfg.occupancyGracePeriod;
+			occupancy.vacatedAt = now - cfg.occupancyGracePeriod * 1000;
 		}
 	}
 
 	logCurrentState();
 }
-
 
 // X is in [ 1, 16 ] and Y is in [1, 2]
 void lcdPrintAt(int x, int y, const char *msg) {
@@ -329,17 +339,22 @@ void lcdClearScreen() {
 void setup(void) {
 	Serial.begin(9600);
 
+#ifdef  HAVE_ROTARY_KNOB
 	rotary.begin();
+#endif
 
 	printf_begin();
 
-	printf("\nBathroom Occupancy Notification Module: Transmit #%d!\n", me);
+	Serial.println();
+	Serial.print(F("Bathroom Occupancy Notification Module: Transmit "));
+	printf("#%d!\n", me);
 
 	radio.begin();
 	radio.setRetries(15, 15);
 	radio.setPayloadSize(8);
 
-	printf("opening for writing pipe: #%d => [%X], ", me, (unsigned int) mySender.pipe);
+	Serial.print(F("creating a pipe "));
+	printf("x#%d => [%X], ", me, (unsigned int) mySender.pipe);
 	radio.openWritingPipe(mySender.pipe);
 	radio.printDetails();
 
@@ -353,10 +368,13 @@ void setup(void) {
     delay(200); // wait for display to boot up
     lcdPrintAt(1, 1, "BORAT v1 booting");
     delay(1000);
-    lcdPrintAt(1, 1, "Calibrating    Motion Sensor...");
+    lcdPrintAt(1, 1, "Calibrating     Motion Sensor...");
 #endif
 
 	motion.init(5000);
+
+	configuration.init();
+	applyConfig();
 
 	resetOccupancy();
 	memset(buffer, 0x0, sizeof(buffer));
@@ -374,8 +392,13 @@ void setup(void) {
 
 void loop(void) {
 	timer.run();
+#ifdef  HAVE_ROTARY_KNOB
 	if (configuration.configure(&showConfigStatus)) {
-		saveConfig();
+		applyConfig();
 	}
+#endif
 	delay(1);
 }
+
+
+

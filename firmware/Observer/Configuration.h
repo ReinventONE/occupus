@@ -1,5 +1,5 @@
 /*
- * Configuration.h
+ * Configuration class for the Observer sensors
  *
  *  Created on: Aug 23, 2014
  *      Author: Konstantin Gredeskoul
@@ -19,6 +19,8 @@
 
 #include <SimpleTimer.h>
 #include <RotaryEncoderWithButton.h>
+#include <EEPROMex.h>
+#include <EEPROMvar.h>
 
 typedef enum {
 	NORMAL = 0,
@@ -29,6 +31,12 @@ typedef enum {
 
 typedef void(*configStatusCallback)(void);
 
+// start reading from the first byte (address 120) of the EEPROM
+const int EEPROM_MEM_BASE = 0;
+// if this value was written we've saved before
+const uint32_t EEPROM_SECRET_VALUE 		= 0x19d7e41d;
+const uint32_t EEPROM_SECRET_ADDRESS 	= 0;
+const uint32_t EEPROM_CONFIG_ADDRESS 	= 8;
 
 // Various thresholds that trigger sensors
 typedef struct configStruct {
@@ -42,14 +50,17 @@ typedef struct configStruct {
 class Configuration {
 public:
 	Configuration(configType *config, RotaryEncoderWithButton *rotary);
-	void writeToEPROM();
-	bool readFromEPROM();
+	void init();
+	void saveToEPROM();
+	void readFromEPROM();
 	bool configure(configStatusCallback callback);
 	configType *cfg;
 	modeType mode;
 private:
+	void constrainConfig(configType *config);
+	configType _eePromConfig;
 	void nextMode(configStatusCallback callback);
-	void enterConfiguration(configStatusCallback callback);
+	bool enterConfiguration(configStatusCallback callback);
 	RotaryEncoderWithButton *_rotary;
 };
 

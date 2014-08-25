@@ -17,7 +17,6 @@
 	#include <pins_arduino.h>
 #endif
 
-
 // recommended values are 10-60s
 #define CALIBRATION_SECONDS 		10
 

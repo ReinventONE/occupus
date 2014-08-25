@@ -9,35 +9,45 @@
 
 #include "Sonar.h"
 
-Sonar::Sonar(uint8_t triggerPin,
+Sonar::Sonar(
+		uint8_t triggerPin,
 		uint8_t echoPin,
-		int maxDistance,
-		uint16_t detectDistance) {
+		uint16_t maxDistance,
+		uint16_t distanceThreshold) {
+
 	_sonar = new NewPing(triggerPin, echoPin, maxDistance);
-	_lastCheckMs = 0;
-	_lastDetectedValue = false;
-	_detectDistance = detectDistance;
+
+	_distanceThreshold = distanceThreshold;
 	_maxDistance = maxDistance;
+
+	_lastDistance = 0;
+	_lastDetected = false;
+
+	_lastCheckMs = 0;
 }
 
-
-bool Sonar::detected() {
+uint16_t Sonar::getDistance() {
 	unsigned long now = millis();
 	if (now - _lastCheckMs > SONAR_MIN_FREQUENCY) {
 		_lastCheckMs = now;
-		unsigned int value = _sonar->ping() / US_ROUNDTRIP_CM;
-		if (value > 0 && value < _detectDistance) {
-			_lastDetectedValue = true;
+		_lastDistance = _sonar->ping() / US_ROUNDTRIP_CM;
+		if (_lastDistance > 0 && _lastDistance < _distanceThreshold) {
+			_lastDetected = true;
 		} else {
-			_lastDetectedValue = false;
+			_lastDetected = false;
 		}
 	}
-	return _lastDetectedValue;
+	return _lastDistance;
 }
 
-void Sonar::setDistance(unsigned int distance) {
-	_detectDistance = constrain(distance, 0, _maxDistance);
+bool Sonar::detected() {
+	getDistance();
+	return _lastDetected;
 }
-unsigned int Sonar::getDistance() {
-	return _detectDistance;
+
+void Sonar::setDistanceThreshold(uint16_t distance) {
+	_distanceThreshold = constrain(distance, 0, _maxDistance);
+}
+uint16_t Sonar::getDistanceThreshold() {
+	return _distanceThreshold;
 }

@@ -25,17 +25,19 @@ class Sonar {
 public:
 	Sonar(	uint8_t triggerPin,
 			uint8_t echoPin,
-			int maxDistance,
-			uint16_t detectDistance);
+			uint16_t maxDistance,    // limit Sonar to this range (up to 5m)
+			uint16_t distanceThreshold); // trigger "detected" if within this range (must be < maxDistance)
 	bool detected(void);
-	void setDistance(unsigned int distance);
-	unsigned int getDistance();
+	uint16_t getDistance();
+	void setDistanceThreshold(uint16_t distanceThreshold);
+	uint16_t getDistanceThreshold();
 private:
 	NewPing *_sonar;
+	uint16_t _distanceThreshold;
+	uint16_t _maxDistance;
 	unsigned long _lastCheckMs;
-	bool _lastDetectedValue;
-	uint16_t _detectDistance;
-	int _maxDistance;
+	bool _lastDetected;
+	uint16_t _lastDistance;
 };
 
 #endif /* SONAR_H_ */

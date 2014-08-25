@@ -99,7 +99,7 @@ SoftwareSerial LcdSerialDisplay(3, pinSerialLcdRX); // pin 8 = TX, pin 0 = RX (u
 Sonar sonar(
 		pinSonarTrigger,
 		pinSonarEcho,
-		cfg.sonarThreshold * 2,// Maximum distance we want to ping for (in centimeters).
+		500,				   // Maximum distance we want to ping for (in centimeters).
 			  	  	  	  	   // Maximum sensor distance is rated at 400-500cm.
 		cfg.sonarThreshold);   // Recognize objects within this many centimeters
 
@@ -166,7 +166,7 @@ void showConfigStatus() {
 	switch (configuration.mode) {
 	case SONAR:
 		printf("Distance Sensor, threshold = %d\n", (int) cfg.sonarThreshold);
-		sprintf(buffer, "CFG: Sonar Thres" "Dist (mm) :%d", (int) cfg.sonarThreshold);
+		sprintf(buffer, "CFG: Sonar Thres" "Dist (cm) :%d", (int) cfg.sonarThreshold);
 		lcdPrintAt(1, 1, buffer);
 		break;
 	case MOTION:

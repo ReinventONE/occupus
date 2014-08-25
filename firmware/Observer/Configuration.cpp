@@ -31,18 +31,22 @@ void Configuration::enterConfiguration(configStatusCallback callback) {
 			switch (mode) {
 			case SONAR:
 				cfg->sonarThreshold += delta;
+				cfg->sonarThreshold = constrain(cfg->sonarThreshold, 10, 500);
 				printf("Set SONAR threshold to %d\n", cfg->sonarThreshold);
 				break;
 			case MOTION:
 				cfg->motionTolerance += delta;
+				cfg->motionTolerance = constrain(cfg->motionTolerance, 100, 10000);
 				printf("Set MOTION pause to %d\n", (int) cfg->motionTolerance);
 				break;
 			case LIGHT:
 				cfg->lightThreshold += delta;
+				cfg->lightThreshold = constrain(cfg->lightThreshold, 0, 1023);
 				printf("Set LIGHT threshold to %d\n", cfg->lightThreshold);
 				break;
 			case GRACE:
-				cfg->occupancyGracePeriod += 10 * delta;
+				cfg->occupancyGracePeriod += (100 * delta);
+				cfg->occupancyGracePeriod = constrain(cfg->occupancyGracePeriod, 1000, 60000);
 				printf("Set Occupancy Grace Period to %d\n", (int) cfg->occupancyGracePeriod);
 				break;
 			default:

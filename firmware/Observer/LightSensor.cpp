@@ -9,10 +9,9 @@
 
 #include "LightSensor.h"
 
-LightSensor::LightSensor(uint8_t pin, unsigned int threshold, bool inverted) {
+LightSensor::LightSensor(uint8_t pin, unsigned int threshold) {
 	_pin = pin;
 	_threshold = threshold;
-	_inverted = inverted;
 }
 
 void LightSensor::init() {
@@ -28,6 +27,10 @@ unsigned int LightSensor::getThreshold() {
 }
 
 bool LightSensor::lightsOn() {
-	int photoCellReading = analogRead(_pin);
-	return (_inverted ? (photoCellReading < 1023 - _threshold) : (photoCellReading > _threshold));
+	return (getLightReading() > _threshold);
+}
+
+uint16_t LightSensor::getLightReading() {
+	uint16_t photoCellReading = constrain(analogRead(_pin), 0, 1023);
+	return photoCellReading;
 }

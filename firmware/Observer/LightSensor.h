@@ -17,19 +17,16 @@
 	#include <pins_arduino.h>
 #endif
 
-// recommended values are 10-60s
-#define CALIBRATION_SECONDS 		5
-
 class LightSensor {
 public:
 	LightSensor(
 			// pin sensor is attached to
 			uint8_t pin,
 			// threshold between 0 and 1023 below which we are considered dark
-			unsigned int threshold,
-			bool inverted); // if high values show dark light, it's inverted
+			unsigned int threshold);
 	void init();
 	bool lightsOn();
+	uint16_t getLightReading();
 	void setThreshold(unsigned int threshold);
 	unsigned int getThreshold();
 private:

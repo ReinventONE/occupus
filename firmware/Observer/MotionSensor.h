@@ -17,8 +17,9 @@
 	#include <pins_arduino.h>
 #endif
 
+
 // recommended values are 10-60s
-#define CALIBRATION_SECONDS 		5
+#define CALIBRATION_SECONDS 		10
 
 class MotionSensor {
 public:
@@ -28,7 +29,10 @@ public:
 			// The amount of milliseconds the sensor has to be low
 			// before we assume all motion has stopped
 			long unsigned int pause);
+
+	void init(int calibrationWaitMillis);
 	void init();
+
 	bool detectedNonRetriggering();
 	bool detected();
 	void setPause(int pause);

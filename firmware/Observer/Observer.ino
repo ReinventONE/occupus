@@ -31,32 +31,50 @@
 
 #include <RotaryEncoderWithButton.h>
 #include <SimpleTimer.h>
+#include <SoftwareSerial.h>
 
-// define either SENDER_DOWNSTAIRS or SENDER_UPSTAIRS depending on which unit is being
-// worked on
+
+#include "Configuration.h"
+
+#define SERIAL_LCD
+
+// define either SENDER_DOWNSTAIRS or
+//               SENDER_UPSTAIRS depending on which unit is being worked on
 #define SENDER_DOWNSTAIRS
 
 #ifdef SENDER_DOWNSTAIRS
-// big sensor with rotary control for main floor bathroom
-#define ROTARY_CONTROL
-#define SONAR_DISTANCE    130
+
+configType cfg = {
+	 220, // light
+	1000, // motion pause
+	 100, // distance
+	5000  // grace
+};
+
 
 //// Sender #0
-uint8_t pinLedBlue 		= 7,
-		pinLedGreen 	= 6            ,
+uint8_t pinSerialLcdRX	= 8,
+		pinLedBlue 		= 7,
+		pinLedGreen 	= 6,
 		pinLedRed 		= 5,
 
-		pinIRInput 		= A1,
 		pinPhotoCell	= A0,
+		pinIRInput 		= A1,
 		pinSonarTrigger = A2,
-		pinSonarEcho 	= A3;
+		pinSonarEcho 	= A3
+		;
 
 const uint8_t me 		= 0; // 0 or 1 (offset into senders[]) and pipes[]
 #endif
 
 #ifdef SENDER_UPSTAIRS
-// Sender #1
-#define SONAR_DISTANCE    100
+
+configType cfg = {
+	 300, // light
+	1000, // motion pause
+	 100, // distance
+	5000  // grace
+};
 
 uint8_t pinLedBlue 		= 7,
 		pinLedGreen		= 2,
@@ -70,40 +88,40 @@ uint8_t pinLedBlue 		= 7,
 const uint8_t me 		= 1; // 0 or 1 (offset into senders[]) and pipes[]
 #endif
 
+// pinA, pinB, pinButton
+RotaryEncoderWithButton rotary(2,3,4);
+Configuration configuration(&cfg, &rotary);
+
+#ifdef SERIAL_LCD
+SoftwareSerial LcdSerialDisplay(3, pinSerialLcdRX); // pin 8 = TX, pin 0 = RX (unused)
+#endif
+
 Sonar sonar(
 		pinSonarTrigger,
 		pinSonarEcho,
-		SONAR_DISTANCE * 2,// Maximum distance we want to ping for (in centimeters).
-			  // Maximum sensor distance is rated at 400-500cm.
-		SONAR_DISTANCE);   // Recognize objects within this many centimeters
+		cfg.sonarThreshold * 2,// Maximum distance we want to ping for (in centimeters).
+			  	  	  	  	   // Maximum sensor distance is rated at 400-500cm.
+		cfg.sonarThreshold);   // Recognize objects within this many centimeters
 
-MotionSensor motion(pinIRInput, 5000);
-#ifdef SENDER_DOWNSTAIRS
-LightSensor light(pinPhotoCell, 250, true);
-#elif defined(SENDER_UPSTAIRS)
-LightSensor light(pinPhotoCell, 300, false);
-#endif
+MotionSensor motion(pinIRInput, cfg.motionTolerance);
+LightSensor light(pinPhotoCell, cfg.lightThreshold);
 
 RF24 radio(9, 10);
 SimpleTimer timer(1);
 
-#ifdef ROTARY_CONTROL
-// pinA, pinB, pinButton
-RotaryEncoderWithButton rotary(2,3,4);
-SimpleTimer  adjustmentTimer(2);
-#endif
+char buffer[90];
 
 typedef struct OccupancyStruct {
 	bool occupied;
 	unsigned long occupiedAt;
 	unsigned long vacatedAt;
 	unsigned long wasOccupiedAt;
-	bool lightDetected;
+	bool lightOn;
 	bool motionDetected;
 	bool sonarDetected;
+	unsigned long sonarDistanceDetected;
 } occupancyStatus;
 
-unsigned int occupancyGracePeriod = 10000; // keep status as "occupied" after it goes off to avoid flickering
 occupancyStatus occupancy;
 
 typedef struct senderInfoStruct {
@@ -119,12 +137,68 @@ senderInfo senders[] = {
 
 senderInfo mySender = senders[me];
 
+// combinations of LEDs to turn on for each mode
+uint8_t configLedModes[][3] = {
+	{0,			 	0,				0}, // normal
+	{pinLedRed, 	0,				0},
+	{pinLedGreen, 	0,				0},
+	{pinLedBlue, 	0,				0},
+	{pinLedRed, 	pinLedGreen,	0}
+};
+
+void showConfigStatus() {
+	digitalWrite(pinLedRed, LOW);
+	digitalWrite(pinLedGreen, LOW);
+
+	if (configuration.mode != NORMAL) {
+		digitalWrite(pinLedBlue, LOW);
+
+		uint8_t *leds;
+		leds = configLedModes[configuration.mode];
+		for (int i = 0; leds[i] != 0; i++) {
+			digitalWrite(leds[i], HIGH);
+		}
+	} else {
+		return;
+	}
+
+	// print status of our configuration
+	switch (configuration.mode) {
+	case SONAR:
+		printf("Distance Sensor, threshold = %d\n", (int) cfg.sonarThreshold);
+		sprintf(buffer, "CFG: Sonar Thres" "Dist (mm) :%d", (int) cfg.sonarThreshold);
+		lcdPrintAt(1, 1, buffer);
+		break;
+	case MOTION:
+		printf("Motion Sensor, Pause Sensitivity = %d\n", (int) cfg.motionTolerance);
+		sprintf(buffer, "CFG: Motion Sens" "Pause(ms) :%d", (int) cfg.motionTolerance);
+		lcdPrintAt(1, 1, buffer);
+		break;
+	case LIGHT:
+		printf("Light Sensor, Current Threshold = %d\n", (int) cfg.lightThreshold);
+		sprintf(buffer, "CFG: Light  Sens" "Threshold :%d", (int) cfg.lightThreshold);
+		lcdPrintAt(1, 1, buffer);
+		break;
+	case GRACE:
+		printf("Grace Period, in milliseconds after = %d\n", (int) cfg.occupancyGracePeriod);
+		sprintf(buffer, "CFG: Grace      " "Period(ms):%d", (int) cfg.occupancyGracePeriod);
+		lcdPrintAt(1, 1, buffer);
+		break;
+	default:
+		configuration.mode = NORMAL;
+	}
+}
+
 void resetOccupancy() {
 	memset(&occupancy, 0x0, sizeof(occupancy));
 }
 
-void setOccupancyGracePeriod(unsigned int period) {
-	occupancyGracePeriod = constrain(period, 1000, 60000);
+void saveConfig() {
+	sonar.setDistanceThreshold(cfg.sonarThreshold);
+	motion.setPause(cfg.motionTolerance);
+	light.setThreshold(cfg.lightThreshold);
+	lcdPrintAt(1,1, "Saving Config...");
+	delay(500);
 }
 //____________________________________________________________________________
 //
@@ -149,11 +223,13 @@ void sendStatus(int timerId) {
 	if (!ok) {
 		mySender.connected = false;
 		printf("error sending data over RF24\n");
+		lcdPrintAt(1, 1, "failed to send data over RF24");
 		// try sending again
 		delay(20);
 		if (radio.write(&data, sizeof(data))) {
 			mySender.connected = true;
 			printf("RF24 connection has been restored\n");
+			lcdPrintAt(1, 1, "RF24 connection is back");
 		}
 	} else {
 		mySender.connected = true;
@@ -161,7 +237,7 @@ void sendStatus(int timerId) {
 }
 
 void detectLight(int timerId) {
-	occupancy.lightDetected = light.lightsOn();
+	occupancy.lightOn = light.lightsOn();
 }
 
 void detectMotion(int timerId) {
@@ -170,135 +246,90 @@ void detectMotion(int timerId) {
 
 void detectSonar(int timerId) {
 	occupancy.sonarDetected = sonar.detected();
+	if (occupancy.sonarDetected) {
+		occupancy.sonarDistanceDetected = sonar.getDistance();
+	}
+}
+
+void logCurrentState() {
+	printf("Occupied? %s | Lights? %s (%4d/%4d) | Motion? %s | Sonar? %s (%4d/%4d)\n",
+			(occupancy.occupied  	  ? "YES" : " NO"),
+			(occupancy.lightOn  ? "YES" : " NO"),
+				light.getLightReading(),
+				light.getThreshold(),
+			(occupancy.motionDetected ? "YES" : " NO"),
+			(occupancy.sonarDetected  ? "YES" : " NO"),
+				sonar.getDistance(),
+				sonar.getDistanceThreshold()
+  			);
+
+#ifdef SERIAL_LCD
+	sprintf(buffer, "%s %s(%3d:%3d)%s   %s(%3d:%3d)",
+			(occupancy.occupied  	  ? "busy": "free"),
+			(occupancy.lightOn  	  ? "+L"  : "-L"), light.getLightReading(), light.getThreshold(),
+			(occupancy.motionDetected ? "+M"  : "-M"),
+			(occupancy.sonarDetected  ? "+D"  : "-D"), sonar.getDistance(), sonar.getDistanceThreshold()
+			);
+	lcdPrintAt(1,1, buffer);
+#endif
 }
 
 void analyzeOccupancy(int timerId) {
-	printf("INFO: status: Lights On?: %s, Motion?: %s, Sonar?: %s, Light Reading: %d\n",
-			(occupancy.lightDetected ? "YES" : "NO"),
-			(occupancy.motionDetected ? "YES" : "NO"),
-			(occupancy.sonarDetected ? "YES" : "NO"),
-			analogRead(pinPhotoCell                                                                                                                                                                                                                   ));
-	bool isSomeoneThere = occupancy.lightDetected
-			&& (occupancy.motionDetected || occupancy.sonarDetected);
+
+	// all the logic follows
+	bool someoneMaybeThere = occupancy.motionDetected || occupancy.sonarDetected;
 	unsigned long now = millis();
-	if (isSomeoneThere) {
+	if (someoneMaybeThere && occupancy.lightOn) {
 		if (!occupancy.occupied) {
-			printf(
-					"INFO: detected new occupancy at %d, Lights On?: %s, Motion?: %s, Sonar?: %s\n",
-					(int) (now / 1000),
-					(occupancy.lightDetected ? "YES" : "NO"),
-					(occupancy.motionDetected ? "YES" : "NO"),
-					(occupancy.sonarDetected ? "YES" : "NO"));
+			printf("==> Someone entered...\n");
 			occupancy.occupiedAt = now;
 			occupancy.vacatedAt = 0;
 		}
 		occupancy.occupied = true;
 		occupancy.wasOccupiedAt = now;
 	} else {
-		if (occupancy.occupied
-				&& ((now - occupancy.wasOccupiedAt) > occupancyGracePeriod)) {
-			printf("INFO: end of occupancy at %d, duration: %d seconds\n",
-					(int) (now / 1000),
-					(int) ((now - occupancy.occupiedAt) / 1000));
+		if (occupancy.occupied	&&
+				(((now - occupancy.wasOccupiedAt) > cfg.occupancyGracePeriod) ||
+				   !occupancy.lightOn)) {
+			printf("==> Someone left, was inside for %d seconds\n",  (int) ((now - occupancy.occupiedAt) / 1000));
 			resetOccupancy();
-			occupancy.vacatedAt = now - occupancyGracePeriod;
+			occupancy.vacatedAt = now - cfg.occupancyGracePeriod;
 		}
 	}
+
+	logCurrentState();
 }
 
-#ifdef ROTARY_CONTROL
 
-typedef enum {
-	NORMAL = 0,
-	SONAR,
-	MOTION,
-	LIGHT,
-	DELAY } modeType;
+// X is in [ 1, 16 ] and Y is in [1, 2]
+void lcdPrintAt(int x, int y, const char *msg) {
+#ifdef SERIAL_LCD
+	lcdClearScreen();
 
-uint8_t adjustmentLedModes[][3] = {
-	{0,0,0},
-	{pinLedRed, 	0,0},
-	{pinLedGreen, 	0,0},
-	{pinLedBlue, 	0,0},
-	{pinLedRed, pinLedGreen,	0}
-};
+	LcdSerialDisplay.write(254);
+	int starting = (y == 1) ? 128 : 192;
+	LcdSerialDisplay.write(starting + x - 1);
 
-modeType mode = NORMAL;
-bool modeLedOn = false;
-
-void modeLightsOn(int timerId) {
-	modeLedOn = !modeLedOn;
-
-	digitalWrite(pinLedRed, LOW);
-	digitalWrite(pinLedBlue, LOW);
-	digitalWrite(pinLedGreen, LOW);
-
-	if (!modeLedOn) return;
-
-	uint8_t *leds;
-	leds = adjustmentLedModes[mode];
-	for (int i = 0; leds[i] != 0; i++) {
-		digitalWrite(leds[i], HIGH);
-	}
-}
-
-void nextMode() {
-	mode = (mode == DELAY) ? NORMAL : (modeType) ((int)mode + 1);
-}
-
-//–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-
-void adjustParameters() {
-	nextMode();
-	int timerId = adjustmentTimer.setInterval(250, &modeLightsOn);
-	printf("Entering Parameter Adjustment MENU, timer created %d\n", timerId);
-	while (mode != NORMAL) {
-		int delta = rotary.rotaryDelta();
-		if (delta != 0) {
-			printf("adjusting by %d ", delta);
-			switch (mode) {
-			case SONAR:
-				sonar.setDistance(sonar.getDistance() + delta);
-				printf("SONAR distance to %d\n", sonar.getDistance());
-				break;
-			case MOTION:
-				motion.setPause(motion.getPause() + delta * 10);
-				printf("Adjusting MOTION pause to %d\n", motion.getPause());
-				break;
-			case LIGHT:
-				light.setThreshold(light.getThreshold() + delta);
-				printf("Adjusting LIGHT threshold to %d\n", light.getThreshold());
-				break;
-			case DELAY:
-				setOccupancyGracePeriod(occupancyGracePeriod + delta*10);
-				printf("Adjusting Occupancy Grace Period to %d\n", occupancyGracePeriod);
-				break;
-			default:
-				printf("Unknown mode\n");
-				mode = NORMAL;
-			}
-		}
-
-		if (rotary.buttonClicked()) {
-			nextMode();
-		}
-
-		adjustmentTimer.run();
-	}
-	adjustmentTimer.deleteTimer(timerId);
-}
-
+	LcdSerialDisplay.write(msg);
 #endif
+}
 
+void lcdClearScreen() {
+#ifdef SERIAL_LCD
+	LcdSerialDisplay.write(254);
+	LcdSerialDisplay.write(128);
+
+	LcdSerialDisplay.write("                ");
+	LcdSerialDisplay.write("                ");
+#endif
+}
 
 //–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 void setup(void) {
 	Serial.begin(9600);
 
-#ifdef ROTARY_CONTROL
 	rotary.begin();
-#endif
 
 	printf_begin();
 
@@ -314,14 +345,24 @@ void setup(void) {
 
 	pinMode(pinLedBlue, OUTPUT);
 	pinMode(pinLedGreen, OUTPUT);
+	pinMode(pinSerialLcdRX, OUTPUT);
 	pinMode(pinLedRed, OUTPUT);
 
-	motion.init();
+#ifdef SERIAL_LCD
+    LcdSerialDisplay.begin(9600); // set up serial port for 9600 baud
+    delay(200); // wait for display to boot up
+    lcdPrintAt(1, 1, "BORAT v1 booting");
+    delay(1000);
+    lcdPrintAt(1, 1, "Calibrating    Motion Sensor...");
+#endif
+
+	motion.init(5000);
 
 	resetOccupancy();
+	memset(buffer, 0x0, sizeof(buffer));
 
 	timer.setInterval(990,  &showStatus);
-	timer.setInterval(2000, &sendStatus);
+	timer.setInterval(500,  &sendStatus);
 
 	timer.setInterval(110, 	&detectLight);
 	timer.setInterval(220,  &detectMotion);
@@ -333,10 +374,8 @@ void setup(void) {
 
 void loop(void) {
 	timer.run();
-
-#ifdef ROTARY_CONTROL
-	if (rotary.buttonClicked() && mode == NORMAL) {
-		adjustParameters();
+	if (configuration.configure(&showConfigStatus)) {
+		saveConfig();
 	}
-#endif
+	delay(1);
 }

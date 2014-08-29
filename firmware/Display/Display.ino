@@ -22,9 +22,15 @@
 #include "printf.h"
 #include <SimpleTimer.h>
 #include "ObserverInfo.h"
+#include <Wire.h>
+
+#define DISP_FREE 		0
+#define DISP_OCCUPIED   1
+#define DISP_ERROR 		2
 
 // comment this out if you do not have Ethernet Shield
 #define ETHERNET_SHIELD
+
 
 #ifdef ETHERNET_SHIELD
 #include <Ethernet.h>
@@ -39,27 +45,28 @@ RF24 radio(4, 5);
 SimpleTimer timer(1);
 
 observerInfo observers[] = {
-		{ 6, false, false, 0xF0F0F0F0E1LL, 0x10, 0, 0, 0, "downstairs"},
-		{ 7, false, false, 0xF0F0F0F0D2LL, 0x20, 0, 0, 0, "upstairs"}
+		{ 6, false, false, 0xF0F0F0F0E1LL, 0x10, 0, 0, 0, "downstairs", 0x10 },
+		{ 7, false, false, 0xF0F0F0F0D2LL, 0x20, 0, 0, 0, "upstairs"  , 0x11 }
 };
 
 static const uint8_t numObservers = sizeof(observers) / sizeof(observerInfo);
 
-void blinkError(int timerId) {
-	for (int i = 0; i < numObservers; i++) {
-		if (!observers[i].connected) {
-			observers[i].errorBlinkState++;
-			observers[i].errorBlinkState %= 5;
-			digitalWrite(observers[i].led,
-					observers[i].errorBlinkState == 0 ? HIGH : LOW);
-		}
-	}
+void updateLEDMatrix(int address, byte data) {
+	Wire.beginTransmission(address);
+	Wire.write(data);
+	Wire.endTransmission();
 }
 
 void showStatus(int timerId) {
 	for (int i = 0; i < numObservers; i++) {
 		if (observers[i].connected) {
 			digitalWrite(observers[i].led, observers[i].status ? HIGH : LOW);
+			updateLEDMatrix(observers[i].ic2addressLED, observers[i].status ? DISP_OCCUPIED : DISP_FREE);
+		} else {
+			observers[i].errorBlinkState++;
+			observers[i].errorBlinkState %= 5;
+			digitalWrite(observers[i].led, observers[i].errorBlinkState == 0 ? HIGH : LOW);
+			updateLEDMatrix(observers[i].ic2addressLED, DISP_ERROR);
 		}
 		printf("transmitter %d is %7s, status = %3s\n", i + 1,
 				observers[i].connected ? "online" : "offline",
@@ -116,8 +123,9 @@ void setup(void) {
 #endif
 
 	timer.setInterval(2000,  &resetDeadRadios);
-	timer.setInterval( 990,  &showStatus);
-	timer.setInterval( 200,  &blinkError);
+	timer.setInterval( 250,  &showStatus);
+
+	Wire.begin();
 }
 void loop(void) {
 

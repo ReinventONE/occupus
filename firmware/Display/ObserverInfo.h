@@ -21,6 +21,7 @@ typedef struct observerInfoStruct {
 	unsigned long lastStateChangeAt;
 	uint8_t errorBlinkState;
 	const char *name;
+	int ic2addressLED;
 } observerInfo;
 
 

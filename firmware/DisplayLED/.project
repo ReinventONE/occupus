@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>Display</name>
+	<name>DisplayLED</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -27,24 +27,14 @@
 	</natures>
 	<linkedResources>
 		<link>
-			<name>Libraries/Ethernet</name>
+			<name>Libraries/AsciiDuino</name>
 			<type>2</type>
-			<locationURI>ArduinoLibPath/Ethernet</locationURI>
+			<locationURI>ArduinoPivateLibPath/AsciiDuino</locationURI>
 		</link>
 		<link>
-			<name>Libraries/RF24</name>
+			<name>Libraries/Rainbowduino</name>
 			<type>2</type>
-			<locationURI>ArduinoPivateLibPath/RF24</locationURI>
-		</link>
-		<link>
-			<name>Libraries/SPI</name>
-			<type>2</type>
-			<locationURI>ArduinoHardwareLibPath/SPI</locationURI>
-		</link>
-		<link>
-			<name>Libraries/SimpleNetwork</name>
-			<type>2</type>
-			<locationURI>ArduinoPivateLibPath/SimpleNetwork</locationURI>
+			<locationURI>ArduinoPivateLibPath/Rainbowduino</locationURI>
 		</link>
 		<link>
 			<name>Libraries/SimpleTimer</name>

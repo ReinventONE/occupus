@@ -40,7 +40,6 @@
 #include <SimpleTimer.h>
 #include <SoftwareSerial.h>
 
-
 #include "Configuration.h"
 
 #define HAVE_ROTARY_KNOB
@@ -52,7 +51,6 @@
 // #define SENDER_UPSTAIRS
 
 #ifdef SENDER_DOWNSTAIRS
-
 //// Sender #0
 uint8_t pinSerialLcdRX	= 8,
 		pinLedBlue 		= 7,
@@ -379,14 +377,14 @@ void setup(void) {
 	resetOccupancy();
 	memset(buffer, 0x0, sizeof(buffer));
 
-	timer.setInterval(990,  &showStatus);
+	timer.setInterval(501,  &showStatus);
 	timer.setInterval(500,  &sendStatus);
 
 	timer.setInterval(110, 	&detectLight);
 	timer.setInterval(220,  &detectMotion);
 	timer.setInterval(330,  &detectSonar);
 
-	timer.setInterval(1000, &analyzeOccupancy);
+	timer.setInterval(502,  &analyzeOccupancy);
 }
 
 

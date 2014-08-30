@@ -20,7 +20,6 @@
 #include <SimpleTimer.h>
 #include <RotaryEncoderWithButton.h>
 #include <EEPROMex.h>
-#include <EEPROMvar.h>
 
 typedef enum {
 	NORMAL = 0,

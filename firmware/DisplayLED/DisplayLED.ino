@@ -119,14 +119,14 @@ const char *errorFrames[] = {
 };
 
 const char *SIGN =
-		"...XX..."
-		".XXXXXX."
-		".XXXXXX."
-		"XXXXXXXX"
-		"XXXXXXXX"
-		".XXXXXX."
-		".XXXXXX."
-		"...XX...";
+		"XXXXXXX."
+		"XXXXXXX."
+		"XXXXXXX."
+		"XXXXXXX."
+		"XXXXXXX."
+		"XXXXXXX."
+                                                    		"XXXXXXX."
+		"........";
 
 const uint32_t
 		UNOCCUPIED 	= 0x008000,
@@ -139,7 +139,7 @@ int i = 0;
 
 
 const uint32_t states[] = {UNOCCUPIED, OCCUPIED, UNKNOWN };
-byte previous = -1, current = 0;
+byte previous = -1, current = 2;
 
 int addresses[] = { 0x10, 0x11 };
 

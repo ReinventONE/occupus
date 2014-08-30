@@ -20,7 +20,7 @@ public:
 	HTTPServer(uint8_t *mac);
 	void begin();
 	void serveJSON(observerInfo observers[], int numObservers);
-
+	IPAddress ipAddress(void);
 	EthernetServer *server;
 private:
 	char _buffer[128];

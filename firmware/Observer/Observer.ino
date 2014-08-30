@@ -42,15 +42,17 @@
 
 #include "Configuration.h"
 
-#define HAVE_ROTARY_KNOB
 #define SERIAL_LCD
 
 // define either SENDER_DOWNSTAIRS or
 //               SENDER_UPSTAIRS depending on which unit is being worked on
-#define SENDER_DOWNSTAIRS
-// #define SENDER_UPSTAIRS
+// #define SENDER_DOWNSTAIRS
+#define SENDER_UPSTAIRS
 
 #ifdef SENDER_DOWNSTAIRS
+
+#define HAVE_ROTARY_KNOB
+
 //// Sender #0
 uint8_t pinSerialLcdRX	= 8,
 		pinLedBlue 		= 7,
@@ -68,7 +70,7 @@ const uint8_t me 		= 0; // 0 or 1 (offset into senders[]) and pipes[]
 
 #ifdef SENDER_UPSTAIRS
 //// Sender #1
-uint8_t pinSerialLcdRX	= 8,
+uint8_t pinSerialLcdRX	= A1,
 		pinLedBlue 		= 7,
 		pinLedGreen 	= 2,
 		pinLedRed 		= 3,

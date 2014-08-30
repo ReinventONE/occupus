@@ -22,6 +22,10 @@ void HTTPServer::begin() {
 	Serial.println(Ethernet.localIP());
 }
 
+IPAddress HTTPServer::ipAddress(void) {
+	return Ethernet.localIP();
+}
+
 void HTTPServer::serveJSON(observerInfo observers[], int numObservers) {
 	// listen for incoming clients
 	EthernetClient client = server->available();

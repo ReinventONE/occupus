@@ -57,6 +57,11 @@
 			<locationURI>ArduinoHardwareLibPath/SPI</locationURI>
 		</link>
 		<link>
+			<name>Libraries/SerialLCD</name>
+			<type>2</type>
+			<locationURI>ArduinoPivateLibPath/SerialLCD</locationURI>
+		</link>
+		<link>
 			<name>Libraries/SimpleTimer</name>
 			<type>2</type>
 			<locationURI>ArduinoPivateLibPath/SimpleTimer</locationURI>

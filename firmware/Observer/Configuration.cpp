@@ -9,7 +9,8 @@ Configuration::Configuration(
 }
 
 void Configuration::init() {
-	readFromEPROM();
+	if (_rotary != NULL)
+		readFromEPROM();
 }
 
 void Configuration::readFromEPROM() {

@@ -39,20 +39,12 @@
 #include <RotaryEncoderWithButton.h>
 #include <SimpleTimer.h>
 #include <SoftwareSerial.h>
-
+#include <SerialLCD.h>
 #include "Configuration.h"
+#include "Modular.h"
 
-#define SERIAL_LCD
-
-// define either SENDER_DOWNSTAIRS or
-//               SENDER_UPSTAIRS depending on which unit is being worked on
-#define SENDER_DOWNSTAIRS
-// #define SENDER_UPSTAIRS
 
 #ifdef SENDER_DOWNSTAIRS
-
-#define HAVE_ROTARY_KNOB
-
 //// Sender #0
 uint8_t pinSerialLcdRX	= 8,
 		pinLedBlue 		= 7,
@@ -86,7 +78,7 @@ const uint8_t me 		= 1; // 0 or 1 (offset into senders[]) and pipes[]
 
 // default values if EEPROM does have anything
 configType cfg = {
-	 250, // light (0 - 1023)
+	 200, // light (0 - 1023)
 	5000, // (ms) motion pause (once detected, ignore during next 5s), max 30,000ms.
 	 100, // (cm) sonar distance to recognized objects within, up to 500
 	  15  // (s)  activity timeout, if activity no longer detected but light is on
@@ -94,7 +86,7 @@ configType cfg = {
 	      //      that is not accessible in the bathroom, so observer does not see the person.
 };
 
-#ifdef  HAVE_ROTARY_KNOB
+#ifdef HAVE_ROTARY_KNOB
 // pinA, pinB, pinButton
 RotaryEncoderWithButton rotary(2,3,4);
 Configuration configuration(&cfg, &rotary);
@@ -103,7 +95,7 @@ Configuration configuration(&cfg, NULL);
 #endif
 
 #ifdef SERIAL_LCD
-SoftwareSerial LcdSerialDisplay(3, pinSerialLcdRX); // pin 8 = TX, pin 0 = RX (unused)
+SerialLCD debugLCD(pinSerialLcdRX);
 #endif
 
 Sonar sonar(
@@ -120,6 +112,7 @@ RF24 radio(9, 10);
 SimpleTimer timer(1);
 
 char buffer[90];
+bool flagStatusLCD = false;
 
 typedef struct OccupancyStruct {
 	bool occupied;
@@ -156,6 +149,18 @@ uint8_t configLedModes[][3] = {
 	{pinLedRed, 	pinLedGreen,	0}
 };
 
+void resetOccupancy() {
+	memset(&occupancy, 0x0, sizeof(occupancy));
+}
+
+// Push configuration from the local config class to each individual module.
+void applyConfig() {
+	sonar.setDistanceThreshold(cfg.sonarThreshold);
+	motion.setPause(cfg.motionTolerance);
+	light.setThreshold(cfg.lightThreshold);
+}
+
+#ifdef HAVE_ROTARY_KNOB
 void showConfigStatus() {
 	digitalWrite(pinLedRed, LOW);
 	digitalWrite(pinLedGreen, LOW);
@@ -175,22 +180,22 @@ void showConfigStatus() {
 	// print status of our configuration
 	switch (configuration.mode) {
 	case SONAR:
-		sprintf(buffer, "CFG: Sonar Thres" "Dist (cm) :%d", cfg.sonarThreshold);
+		sprintf(buffer, "CFG: Sonar Thres" "Dist (cm) :%4d ", cfg.sonarThreshold);
 		break;
 	case MOTION:
-		sprintf(buffer, "CFG: Motion Sens" "Pause(ms) :%d", cfg.motionTolerance);
+		sprintf(buffer, "CFG: Motion Sens" "Pause(ms) :%4d ", (unsigned int) cfg.motionTolerance);
 		break;
 	case LIGHT:
-		sprintf(buffer, "CFG: Light Sens " "Threshold :%d", cfg.lightThreshold);
+		sprintf(buffer, "CFG: Light Sens " "Threshold :%4d ", cfg.lightThreshold);
 		break;
 	case GRACE:
-		sprintf(buffer, "CFG: ExitTimeout" "(Seconds) :%d", cfg.occupancyGracePeriod);
+		sprintf(buffer, "CFG: ExitTimeout" "(Seconds) :%4d ", (unsigned int) cfg.occupancyGracePeriod);
 		break;
 	default:
 		sprintf(buffer,"                 " "             ");
 		configuration.mode = NORMAL;
 	}
-	lcdPrintAt(1, 1, buffer);
+	debugLCD.print(buffer);
 	short offset = 16;
 	char f = buffer[offset]; buffer[offset] = '\0';
 	Serial.print(buffer);
@@ -198,26 +203,14 @@ void showConfigStatus() {
 	buffer[offset] = f;
 	Serial.println(buffer + offset);
 }
+#endif
 
-void resetOccupancy() {
-	memset(&occupancy, 0x0, sizeof(occupancy));
-}
-
-// Push configuration from the local config class to each
-// individual module.
-void applyConfig() {
-	sonar.setDistanceThreshold(cfg.sonarThreshold);
-	motion.setPause(cfg.motionTolerance);
-	light.setThreshold(cfg.lightThreshold);
-	lcdPrintAt(1,1, "Reading EPROM   " "Configuration");
-	delay(1000);
-}
 //____________________________________________________________________________
 //
 // Timers
-
 void showStatus(int timerId) {
 	if (mySender.connected) {
+		digitalWrite(pinLedRed, LOW);
 		digitalWrite(pinLedBlue, occupancy.occupied ? HIGH : LOW);
 		digitalWrite(pinLedGreen, occupancy.occupied ? LOW : HIGH);
 	} else {
@@ -234,16 +227,7 @@ void sendStatus(int timerId) {
 	bool ok = radio.write(&data, sizeof(data));
 	if (!ok) {
 		mySender.connected = false;
-		delay(500);
 		Serial.println(F("Error sending data over RF24"));
-		lcdPrintAt(1, 1, "failed to send data over RF24");
-		// try sending again
-		delay(20);
-		if (radio.write(&data, sizeof(data))) {
-			mySender.connected = true;
-			Serial.println(F("RF24 connection has been restored"));
-			lcdPrintAt(1, 1, "RF24 connection is back");
-		}
 	} else {
 		mySender.connected = true;
 	}
@@ -277,13 +261,21 @@ void logCurrentState() {
   			);
 
 #ifdef SERIAL_LCD
-	sprintf(buffer, "%s %s(%3d:%3d)%s   %s(%3d:%3d)",
-			(occupancy.occupied  	  ? "busy": "free"),
-			(occupancy.lightOn  	  ? "+L"  : "-L"), light.getLightReading(), light.getThreshold(),
-			(occupancy.motionDetected ? "+M"  : "-M"),
-			(occupancy.sonarDetected  ? "+D"  : "-D"), sonar.getDistance(), sonar.getDistanceThreshold()
-			);
-	lcdPrintAt(1,1, buffer);
+	if (mySender.connected || flagStatusLCD) {
+		sprintf(buffer, "%s %s(%3d:%3d)",
+				(occupancy.occupied  	  ? "Occp": "Vcnt"),
+				(occupancy.lightOn  	  ? "+L"  : "-L"), light.getLightReading(), light.getThreshold());
+		debugLCD.print(buffer);
+		sprintf(buffer, "  %s %s(%3d:%3d)",
+				(occupancy.motionDetected ? "+M"  : "-M"),
+				(occupancy.sonarDetected  ? "+D"  : "-D"), sonar.getDistance(), sonar.getDistanceThreshold()
+				);
+		debugLCD.printAt(1, 2, buffer);
+	} else {
+		debugLCD.print("Error connecting", "to display unit");
+	}
+	flagStatusLCD = !flagStatusLCD;
+
 #endif
 }
 
@@ -310,30 +302,6 @@ void analyzeOccupancy(int timerId) {
 
 	logCurrentState();
 }
-
-// X is in [ 1, 16 ] and Y is in [1, 2]
-void lcdPrintAt(int x, int y, const char *msg) {
-#ifdef SERIAL_LCD
-	lcdClearScreen();
-
-	LcdSerialDisplay.write(254);
-	int starting = (y == 1) ? 128 : 192;
-	LcdSerialDisplay.write(starting + x - 1);
-
-	LcdSerialDisplay.write(msg);
-#endif
-}
-
-void lcdClearScreen() {
-#ifdef SERIAL_LCD
-	LcdSerialDisplay.write(254);
-	LcdSerialDisplay.write(128);
-
-	LcdSerialDisplay.write("                ");
-	LcdSerialDisplay.write("                ");
-#endif
-}
-
 //–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 void setup(void) {
@@ -364,15 +332,19 @@ void setup(void) {
 	pinMode(pinLedRed, OUTPUT);
 
 #ifdef SERIAL_LCD
-    LcdSerialDisplay.begin(9600); // set up serial port for 9600 baud
+	debugLCD.init();
     delay(200); // wait for display to boot up
-    lcdPrintAt(1, 1, "BORAT v1 booting");
+    debugLCD.print("PooCast v1.0", "Booting...");
     delay(1000);
-    lcdPrintAt(1, 1, "Calibrating     Motion Sensor...");
+    debugLCD.print("Calibrating", "motion sensor...");
 #endif
 
 	motion.init(5000);
 
+#ifdef HAVE_ROTARY_KNOB
+	debugLCD.print("Reading config ", "from EEPROM...");
+	delay(1000);
+#endif
 	configuration.init();
 	applyConfig();
 
@@ -392,8 +364,10 @@ void setup(void) {
 
 void loop(void) {
 	timer.run();
-#ifdef  HAVE_ROTARY_KNOB
+#ifdef HAVE_ROTARY_KNOB
 	if (configuration.configure(&showConfigStatus)) {
+		debugLCD.print("Saving config","to the EEPROM.");
+		delay(1000);
 		applyConfig();
 	}
 #endif

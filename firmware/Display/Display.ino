@@ -28,6 +28,8 @@
 #define DISP_FREE 		1
 #define DISP_OCCUPIED   2
 
+#include <SerialLCD.h>
+
 #define ETHERNET_SHIELD
 #define SERIAL_LCD
 
@@ -40,13 +42,10 @@ HTTPServer server(mac);
 
 uint8_t pinSerialLcdRX = 5;
 
+SerialLCD debugLCD(pinSerialLcdRX);
+
 // how many milliseconds should we wait for a dead client to come back
 #define SENSOR_CONNECTIVITY_TIMEOUT 5000
-
-#ifdef SERIAL_LCD
-SoftwareSerial LcdSerialDisplay(3, pinSerialLcdRX); // pin 8 = TX, pin 0 = RX (unused)
-#endif
-
 
 RF24 radio(7,8);
 SimpleTimer timer(1);
@@ -60,33 +59,6 @@ char buf[36]; // for LCD
 
 static const uint8_t numObservers = sizeof(observers) / sizeof(observerInfo);
 
-void lcdPrintAt(int x, int y, const char *msg) {
-	lcdPrintAt(x,y,msg,true);
-}
-
-// X is in [ 1, 16 ] and Y is in [1, 2]
-void lcdPrintAt(int x, int y, const char *msg, bool clearScreen) {
-#ifdef SERIAL_LCD
-	if (clearScreen) lcdClearScreen();
-
-	LcdSerialDisplay.write(254);
-	int starting = (y == 1) ? 128 : 192;
-	LcdSerialDisplay.write(starting + x - 1);
-
-	LcdSerialDisplay.write(msg);
-#endif
-}
-
-void lcdClearScreen() {
-#ifdef SERIAL_LCD
-	LcdSerialDisplay.write(254);
-	LcdSerialDisplay.write(128);
-
-	LcdSerialDisplay.write("                ");
-	LcdSerialDisplay.write("                ");
-#endif
-}
-
 void updateLEDMatrix(int address, byte data) {
 	Wire.beginTransmission(address);
 	Wire.write(data);
@@ -94,20 +66,20 @@ void updateLEDMatrix(int address, byte data) {
 }
 
 void showStatus(int timerId) {
-	lcdClearScreen();
+	debugLCD.clear();
 	for (int i = 0; i < numObservers; i++) {
 		if (observers[i].connected) {
 			digitalWrite(observers[i].led, observers[i].status ? HIGH : LOW);
 			updateLEDMatrix(observers[i].ic2addressLED, observers[i].status ? DISP_OCCUPIED : DISP_FREE);
-			sprintf(buf, "SNDR %d: %s", i + 1, (observers[i].status ? "Occupied" : "Availabl") );
-			lcdPrintAt(1, i + 1, buf, false);
+			sprintf(buf, "Room %d: %s", i + 1, (observers[i].status ? "Occupied" : "Vacant") );
+			debugLCD.printAt(1, i+1, buf);
 		} else {
 			observers[i].errorBlinkState++;
 			observers[i].errorBlinkState %= 5;
 			digitalWrite(observers[i].led, observers[i].errorBlinkState == 0 ? HIGH : LOW);
 			updateLEDMatrix(observers[i].ic2addressLED, DISP_ERROR);
-			sprintf(buf, "SNDR %d: %s", i + 1, "Offline");
-			lcdPrintAt(1, i + 1, buf, false);
+			sprintf(buf, "Room %d: %s", i + 1, "Down");
+			debugLCD.printAt(1, i+1, buf);
 		}
 		printf("transmitter %d is %7s, status = %3s\n", i + 1,
 				observers[i].connected ? "online" : "offline",
@@ -129,6 +101,10 @@ void resetDeadRadios(int timerId) {
 	}
 }
 
+void showMyIP(int timerId) {
+	debugLCD.print("My IP Address:", "IP: ");
+	debugLCD.serial()->print(server.ipAddress());
+}
 
 void serveJSON(int timerId) {
 	server.serveJSON(observers, numObservers);
@@ -137,13 +113,10 @@ void serveJSON(int timerId) {
 void setup(void) {
 	Serial.begin(57600);
 
-#ifdef SERIAL_LCD
-    LcdSerialDisplay.begin(9600); // set up serial port for 9600 baud
-	pinMode(pinSerialLcdRX, OUTPUT);
-	lcdPrintAt(1, 1, "BORAT v1 Server " "Booting....");
-	delay(1000);
-#endif
+    debugLCD.init();
 
+	debugLCD.print("PooCast Ver 1.0", "Booting....");
+	delay(1000);
 	printf_begin();
 
 	radio.begin();
@@ -165,18 +138,19 @@ void setup(void) {
 	radio.printDetails();
 
 #ifdef ETHERNET_SHIELD
-	lcdPrintAt(1, 1, "Booting HTTPD...", true);
+	debugLCD.print("Network Setup", "Qry IP via DHCP");
 	server.begin();
-	timer.setInterval( 980,  &serveJSON);
-	lcdPrintAt(1, 2, "IP: ", false);
-#ifdef SERIAL_LCD
-	LcdSerialDisplay.print(server.ipAddress());
-#endif
+	timer.setInterval(980,  &serveJSON);
+	debugLCD.printAt(1, 2, "IP: ");
+	debugLCD.serial()->print(server.ipAddress());
 	delay(2000);
+	debugLCD.print("Get Ready for..","the PooCast!");
+	delay(500);
 #endif
 
-	timer.setInterval(2000,  &resetDeadRadios);
-	timer.setInterval(1000,  &showStatus);
+	timer.setInterval(2000,   &resetDeadRadios);
+	timer.setInterval(1000,   &showStatus);
+	timer.setInterval(5000,   &showMyIP);
 
 	Wire.begin();
 }

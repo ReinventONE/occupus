@@ -46,8 +46,8 @@
 
 // define either SENDER_DOWNSTAIRS or
 //               SENDER_UPSTAIRS depending on which unit is being worked on
-// #define SENDER_DOWNSTAIRS
-#define SENDER_UPSTAIRS
+#define SENDER_DOWNSTAIRS
+// #define SENDER_UPSTAIRS
 
 #ifdef SENDER_DOWNSTAIRS
 

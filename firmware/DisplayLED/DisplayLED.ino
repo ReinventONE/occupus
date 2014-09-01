@@ -119,49 +119,85 @@ const char *errorFrames[] = {
 };
 
 const char *SIGN =
-		"XXXXXXX."
-		"XXXXXXX."
-		"XXXXXXX."
-		"XXXXXXX."
-		"XXXXXXX."
-		"XXXXXXX."
-                                                    		"XXXXXXX."
-		"........";
-
-const uint32_t
-		UNOCCUPIED 	= 0x008000,
-		OCCUPIED 	= 0x800000,
-		UNKNOWN 	= 0x00080;
+		"XXXXXXXX"
+		"XXXXXXXX"
+		"XXXXXXXX"
+		"XXXXXXXX"
+		"XXXXXXXX"
+		"XXXXXXXX"
+		"XXXXXXXX"
+		"XXXXXXXX";
 
 SimpleTimer timer(1);
 
 int i = 0;
 
+const RGBColor RED 		= {{ 128,   0,   0 }};
+const RGBColor GREEN 	= {{   0, 128,   0 }};
+const RGBColor BLUE		= {{   0,   0, 128 }};
+const RGBColor BLACK	= {{   0,   0,   0 }};
 
-const uint32_t states[] = {UNOCCUPIED, OCCUPIED, UNKNOWN };
-byte previous = -1, current = 2;
+const uint8_t  primaryColorVariationAmount = 64,
+			   secondaryColorVariationAmount = 64;
+
+typedef enum {
+		UNKNOWN 	= 0,
+		UNOCCUPIED,
+		OCCUPIED } state;
+
+const state 	states[] 		= {UNKNOWN, UNOCCUPIED, OCCUPIED};
+const RGBColor  stateColor[] 	= {BLUE,    GREEN,       RED};
+
+const uint8_t   numStates = (sizeof(stateColor) / sizeof(RGBColor));
+
+byte previous = -1, current = 0;
+float variationCoefficient = 0, lastTimeCoefficient = 0;
+bool goingUp = false;
 
 int addresses[] = { 0x10, 0x11 };
 
 void receiveEvent(int howMany) {
 	while(Wire.available() > 0) {
 		byte value = Wire.read();
-		if (value < (sizeof(states) / sizeof(uint32_t))) {
+		if (value < numStates) {
 			current = value;
 		}
 	}
+}
 
+RGBColor newColor(uint8_t x, uint8_t y, char value, RGBColor previousColor) {
+	float currentTimeCoefficient = (millis() % 5000) / 5000.0; // 0 .. 1
+	if (currentTimeCoefficient < lastTimeCoefficient) {
+		goingUp = !goingUp;
+	}
+
+	lastTimeCoefficient = currentTimeCoefficient;
+	variationCoefficient = goingUp ? currentTimeCoefficient : (1 - currentTimeCoefficient);
+
+	RGBColor c = previousColor;
+	for (int i = 0; i < 3; i++) {
+		if (c.rgb[i] > 0) {
+			c.rgb[i] = c.rgb[i] +
+					(rand() % primaryColorVariationAmount -
+							(primaryColorVariationAmount / 4));
+		} else {
+			c.rgb[i] =  variationCoefficient * (rand() % secondaryColorVariationAmount);
+		}
+	}
+	return c;
 }
 
 void showStatus (int timerId ) {
-	uint32_t c = states[current];
-	if (c != UNKNOWN) {
-		if (current != previous)
-			matrix.frame(SIGN, c);
+	if (current != UNKNOWN) {
+		matrix.frame(SIGN, stateColor[current], newColor);
 		previous = current;
-	} else {
+	}
+}
+
+void showError(int timerId ) {
+	if (current == UNKNOWN) {
 		i = i % (sizeof(errorFrames) / sizeof(char *));
-		matrix.frame(errorFrames[i], states[i % 4]);
+		matrix.frame(errorFrames[i], stateColor[i % numStates]);
 		i++;
 	}
 }
@@ -173,6 +209,7 @@ void setup() {
 	Wire.begin(addresses[me]);
 	Wire.onReceive(receiveEvent);
 	timer.setInterval(100, &showStatus);
+	timer.setInterval(200, &showError);
 }
 
 void loop() {

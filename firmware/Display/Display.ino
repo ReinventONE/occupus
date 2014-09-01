@@ -24,9 +24,9 @@
 #include "printf.h"
 #include "ObserverInfo.h"
 
-#define DISP_FREE 		0
-#define DISP_OCCUPIED   1
-#define DISP_ERROR 		2
+#define DISP_ERROR 		0
+#define DISP_FREE 		1
+#define DISP_OCCUPIED   2
 
 #define ETHERNET_SHIELD
 #define SERIAL_LCD

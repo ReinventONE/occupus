@@ -11,15 +11,13 @@
 #define MODULAR_H_
 
 #define SERIAL_LCD
+#define HAVE_ROTARY_KNOB
+
 
 /*
  * define either SENDER_DOWNSTAIRS or SENDER_UPSTAIRS depending on the unit.
  */
 //#define SENDER_DOWNSTAIRS
 #define SENDER_UPSTAIRS
-
-#ifdef SENDER_DOWNSTAIRS
-#define HAVE_ROTARY_KNOB
-#endif
 
 #endif /* MODULAR_H_ */

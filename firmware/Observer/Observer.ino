@@ -54,7 +54,11 @@ uint8_t pinSerialLcdRX	= 8,
 		pinPhotoCell	= A0,
 		pinIRInput 		= A1,
 		pinSonarTrigger = A2,
-		pinSonarEcho 	= A3
+		pinSonarEcho 	= A3,
+
+		pinRotaryLeft   = 2,
+		pinRotaryRight  = 3,
+		pinRotaryButton = 4
 		;
 
 const uint8_t me 		= 0; // 0 or 1 (offset into senders[]) and pipes[]
@@ -64,13 +68,17 @@ const uint8_t me 		= 0; // 0 or 1 (offset into senders[]) and pipes[]
 //// Sender #1
 uint8_t pinSerialLcdRX	= A1,
 		pinLedBlue 		= 7,
-		pinLedGreen 	= 2,
-		pinLedRed 		= 3,
+		pinLedGreen 	= A4,
+		pinLedRed 		= A2,
 
 		pinPhotoCell	= A0,
 		pinIRInput 		= 6,
 		pinSonarTrigger = 5,
-		pinSonarEcho 	= 4
+		pinSonarEcho 	= 4,
+
+		pinRotaryLeft   = 3,
+		pinRotaryRight  = 2,
+		pinRotaryButton = A3
 		;
 
 const uint8_t me 		= 1; // 0 or 1 (offset into senders[]) and pipes[]
@@ -88,7 +96,7 @@ configType cfg = {
 
 #ifdef HAVE_ROTARY_KNOB
 // pinA, pinB, pinButton
-RotaryEncoderWithButton rotary(2,3,4);
+RotaryEncoderWithButton rotary(pinRotaryLeft, pinRotaryRight, pinRotaryButton);
 Configuration configuration(&cfg, &rotary);
 #else
 Configuration configuration(&cfg, NULL);

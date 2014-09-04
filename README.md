@@ -20,11 +20,13 @@ Observer module uses three separate sensors to decide if the bathroom is occupie
  * _IR Motion Sensor_: if the light is on, motion sensor input is used.  If any movement detected within last 15 seconds, bathroom considered occupied.
  * _Distance Sensor_ (ultrasound): if the light is on, but the motion sensor is not detecting any activity, distance sensor is checked against the configurable distance threshold. If someone is sitting in one position motionessly the motion sensor would not pick it up, and so the distance sensor can be configured with a specific threshold set to the number of _cm_ exactly in between what the sensor shows with a person sitting there, and without.
 
+Observer units transmit their status to the Display unit via [RF24 wireless module](http://maniacbug.wordpress.com/2011/11/02/getting-started-rf24/).
+
 #### Configuration
 
-Because all thresholds are extremely room and environment specific, Observer modules must be equipped with a [Rotary Encoder Knob](http://www.adafruit.com/products/377) (this particular model incorporates a click button, but you can install an extra button if your rotary knob doesn't have one). Using the button, the user can enter a special configuration mode, and tweak all the settings.
+Because all thresholds are extremely room and environment specific, Observer modules should be equipped with a [Rotary Encoder Knob](http://www.adafruit.com/products/377) (this particular model incorporates a click button, but you can install an extra button if your rotary knob doesn't have one). Using the button, the user can enter a special configuration mode, and tweak all the settings.
 
-To make changes visible to the user of the Observer module, one must have a Serial LCD display to show the feedback and new values. We found Sparkfun LCD to be very easy to use and reliable, and I amek all my projects report status data on that serial port.  Very useful!
+To make changes visible to the user of the Observer module, one must have a Serial LCD display to show the feedback and new values. We found Sparkfun LCD to be very easy to use and reliable, and I have been convering most of my Arduino projects to report status data on that serial port.  Very useful!
 
 Here is a picture of one of the observer units attached to a debugging console (16x2 LCD Matrix), which is communicated with via a Serial cable.  The LCD matrix is optional and can be plugged in/out at any time.
 
@@ -37,25 +39,13 @@ The settings that can be changed are (and are cycled through by pressing the but
 3. _Sonar Distance_ (in cm): distance threshold used to decide if Sonar is detecting someone or not.  Values less than threshold are positive (detect), large than threshold are negative (unoccupied).
 4. _Exit Timout_ (in seconds): if the light was left on, and we detected occupancy, but no longer do – how long should we consider the room still occupied?  If you make this number too small, the overall status will flicker as various sensors are triggered, but then released. Setting this to 10-30 seconds is reasonable.  Remember, if bathroom user turns off the light, the timeout is not used.
 
-Observer unit transmits it's status to the Display unit via [RF24 wireless module](http://maniacbug.wordpress.com/2011/11/02/getting-started-rf24/).
+When you exit configuration menu by clicking the knob button, values are saved to EEPROM, so even if the unit reboots they persist and are used moving forward by that unit.
 
-Next are some pictures of the sensor modules.
+#### Observer Module Desigh
 
-#### Early Sensor Module
+Here is an example of Observer module based on Arduino Nano, and custom soldered components, without any shield:
 
-![Sensor Module #1](images/module-observer/Observer-EarlyPrototype.jpg) that used Adafruit Laser Cut box for Beaglebone Black :)
-
-#### Advanced Sensor Module
-
-There were several design updates, and the most recent two sensors are shown below:
-
-![Sensor Module #1](images/module-observer/Observer-Final-SinglePCB-HandMade.jpg) that used Adafruit Laser Cut box for Beaglebone Black :)
-
-This one is based on a nano shield which requires significantly larger size.
-
-![Sensor Module #2](images/module-observer/Observer-Final-Nano-Shield.jpg)
-
-This sensor unit has an additional rotary knob (which can be clicked, for a button effect).  I used the knob to provide optional real time configuration interface, which saves all changes to EEPROM.
+![Sensor Module #1](images/module-observer/Observer-Final-SinglePCB-HandMade.jpg)
 
 ## Display Module
 
@@ -63,7 +53,7 @@ Primary way the display unit informs users is via two sets of LED Matrices, show
 
 ![Pretty Lights](images/module-display/DisplayUnit 0.jpg)
 
-Each is driven by a Rainbowduino, and a serial connection is used from Arduino UNO, to the first Rainboduino, then to the second one.
+Each matrix is driven by a Rainbowduino, and a serial connection is used from Arduino UNO, to the first Rainboduino, then to the second one.
 
 ### TCP/IP
 

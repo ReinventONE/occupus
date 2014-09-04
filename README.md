@@ -83,13 +83,12 @@ A couple additional photos showing the system in action on the wall at Wanelo HQ
 
 Here are a set of pictures that might shed some light into the assembly of the display unit:
 
-![Display Module Disassembled](images/module-display/DisplayUnit - 1.jpg)
-![Display Module Disassembled](images/module-display/DisplayUnit - 2.jpg)
-![Display Module Disassembled](images/module-display/DisplayUnit - 3.jpg)
-![Display Module Disassembled](images/module-display/DisplayUnit - 4.jpg)
-![Display Module Disassembled](images/module-display/DisplayUnit - 5.jpg)
-![Display Module Disassembled](images/module-display/DisplayUnit - 5.jpg)
-![Display Module Disassembled](images/module-display/DisplayUnit - 1.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit 1.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit 2.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit 3.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit 4.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit 5.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit 6.jpg)
 
 
 ### Curl Session

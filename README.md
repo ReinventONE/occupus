@@ -76,7 +76,7 @@ we are able to run a small HTTP server that serves JSON.
 
 A couple additional photos showing the system in action on the wall at Wanelo HQ.
 
-![Real Life](images/real-life-examples/All Three Units Engaged in Testing - 1.jpg)
+![Real Life](images/real-life-examples/All Three Units Engaged in Testing.jpg)
 ![Real Life](images/real-life-examples/Live Unit at WaneloHQ office space.jpg)
 
 ### Assembly

@@ -6,7 +6,7 @@ BORAT is an Arduino-based bathroom/toilet occupancy detection, and wirelss notif
 
 This project was conceived of the actual need to know when one or both bathrooms at our new office are occupied. Understanding this status saves people valuable time at work, and allows creative types to stay in the flow until someone, finally, eventually, decides to flush that damn toilet and get the hell out :^)  No more guessing – which bathroom is free? Is it the one upstairs, or on the 2nd floor?  What about around the corner?
 
-### Installation Instructions 
+### Installation Instructions
 
 Simply install one of the sensor modules in each bathroom, aim Sonar sensor at the toilet, adjust the Sonar distance parameters using rotary knob, then repeat for each other bathroom, and then install the display unit in a common well visible place.  Optionally, write a web app that pulls JSON http server, and provides you with a rolling average of your office toilet time :)
 
@@ -16,13 +16,19 @@ Simply install one of the sensor modules in each bathroom, aim Sonar sensor at t
 
 Observer module uses three separate sensors to decide if the bathroom is occupied or not:
 
- * _Light Sensor_: if the light levels are below threshold, no other sensors are checked, and the bathroom is considered unoccupied.  
+ * _Light Sensor_: if the light levels are below threshold, no other sensors are checked, and the bathroom is considered unoccupied.
  * _IR Motion Sensor_: if the light is on, motion sensor input is used.  If any movement detected within last 15 seconds, bathroom considered occupied.
  * _Distance Sensor_ (ultrasound): if the light is on, but the motion sensor is not detecting any activity, distance sensor is checked against the configurable distance threshold. If someone is sitting in one position motionessly the motion sensor would not pick it up, and so the distance sensor can be configured with a specific threshold set to the number of _cm_ exactly in between what the sensor shows with a person sitting there, and without.
 
 #### Configuration
 
-Because all thresholds are extremely room and environment specific, Observer modules must be equipped with a [Rotary Encoder Knob](http://www.adafruit.com/products/377) (this particular model incorporates a click button, but you can install an extra button if your rotary knob doesn't have one). Using the button, the user can enter a special configuration mode, and tweak all the settings. 
+Because all thresholds are extremely room and environment specific, Observer modules must be equipped with a [Rotary Encoder Knob](http://www.adafruit.com/products/377) (this particular model incorporates a click button, but you can install an extra button if your rotary knob doesn't have one). Using the button, the user can enter a special configuration mode, and tweak all the settings.
+
+To make changes visible to the user of the Observer module, one must have a Serial LCD display to show the feedback and new values. We found Sparkfun LCD to be very easy to use and reliable, and I amek all my projects report status data on that serial port.  Very useful!
+
+Here is a picture of one of the observer units attached to a debugging console (16x2 LCD Matrix), which is communicated with via a Serial cable.  The LCD matrix is optional and can be plugged in/out at any time.
+
+![Configuring a Sensor](images/module-observer/Observer-Configuration-via-SerialLCD.jpg).
 
 The settings that can be changed are (and are cycled through by pressing the button):
 
@@ -31,18 +37,23 @@ The settings that can be changed are (and are cycled through by pressing the but
 3. _Sonar Distance_ (in cm): distance threshold used to decide if Sonar is detecting someone or not.  Values less than threshold are positive (detect), large than threshold are negative (unoccupied).
 4. _Exit Timout_ (in seconds): if the light was left on, and we detected occupancy, but no longer do – how long should we consider the room still occupied?  If you make this number too small, the overall status will flicker as various sensors are triggered, but then released. Setting this to 10-30 seconds is reasonable.  Remember, if bathroom user turns off the light, the timeout is not used.
 
-
 Observer unit transmits it's status to the Display unit via [RF24 wireless module](http://maniacbug.wordpress.com/2011/11/02/getting-started-rf24/).
 
 Next are some pictures of the sensor modules.
 
 #### Early Sensor Module
 
-![Sensor Module #1](images/PooCast-EarlySensor.jpg)
+![Sensor Module #1](images/module-observer/Observer-EarlyPrototype.jpg) that used Adafruit Laser Cut box for Beaglebone Black :)
 
 #### Advanced Sensor Module
 
-![Sensor Module #2](images/PooCast-NewerSensor.jpg)
+There were several design updates, and the most recent two sensors are shown below:
+
+![Sensor Module #1](images/module-observer/Observer-Final-SinglePCB-HandMade.jpg) that used Adafruit Laser Cut box for Beaglebone Black :)
+
+This one is based on a nano shield which requires significantly larger size.
+
+![Sensor Module #2](images/module-observer/Observer-Final-Nano-Shield.jpg)
 
 This sensor unit has an additional rotary knob (which can be clicked, for a button effect).  I used the knob to provide optional real time configuration interface, which saves all changes to EEPROM.
 
@@ -50,7 +61,7 @@ This sensor unit has an additional rotary knob (which can be clicked, for a butt
 
 Primary way the display unit informs users is via two sets of LED Matrices, shown below.
 
-![LED Matrices](images/PooCast-Display-Unit.jpg)
+![Pretty Lights](images/module-display/DisplayUnit 0.jpg)
 
 Each is driven by a Rainbowduino, and a serial connection is used from Arduino UNO, to the first Rainboduino, then to the second one.
 
@@ -59,7 +70,27 @@ Each is driven by a Rainbowduino, and a serial connection is used from Arduino U
 Reporter module has ability to provide status over the TCP/IP network. Using Ethernet Arduino Shield
 we are able to run a small HTTP server that serves JSON.
 
-![Display Module JSON Response](images/PooCast-JSON.jpg)
+![Display Module JSON Response](images/module-display/DisplayUnit - HTTP Server.jpg)
+
+### In The Wild
+
+A couple additional photos showing the system in action on the wall at Wanelo HQ.
+
+![Real Life](images/real-life-examples/All Three Units Engaged in Testing - 1.jpg)
+![Real Life](images/real-life-examples/Live Unit at WaneloHQ office space.jpg)
+
+### Assembly
+
+Here are a set of pictures that might shed some light into the assembly of the display unit:
+
+![Display Module Disassembled](images/module-display/DisplayUnit - 1.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit - 2.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit - 3.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit - 4.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit - 5.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit - 5.jpg)
+![Display Module Disassembled](images/module-display/DisplayUnit - 1.jpg)
+
 
 ### Curl Session
 
@@ -87,14 +118,6 @@ we are able to run a small HTTP server that serves JSON.
 	"connected": false
 }]
 ```
-
-## Photographs
-
-Below is the picture of all components participating in this function:
-
-![PooCast Overview](images/PooCast-Overview.jpg)
-
-
 
 
 ## Contributing

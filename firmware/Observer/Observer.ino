@@ -43,6 +43,7 @@
 #include "Configuration.h"
 #include "Modular.h"
 
+#define ERR_COUNT_FOR_RADIO_RESET 50
 
 #ifdef SENDER_DOWNSTAIRS
 //// Sender #0
@@ -121,6 +122,7 @@ SimpleTimer timer(1);
 
 char buffer[90];
 bool flagStatusLCD = false;
+int sendErrorCnt = 0;
 
 typedef struct OccupancyStruct {
 	bool occupied;
@@ -235,8 +237,18 @@ void sendStatus(int timerId) {
 	bool ok = radio.write(&data, sizeof(data));
 	if (!ok) {
 		mySender.connected = false;
+		sendErrorCnt ++;
 		Serial.println(F("Error sending data over RF24"));
+		if (sendErrorCnt % ERR_COUNT_FOR_RADIO_RESET == 5) {
+#ifdef SERIAL_LCD
+			sprintf(buffer, "%d send errors", sendErrorCnt);
+			debugLCD.print(buffer, "resetting radio");
+#endif
+			delay(1000);
+			radioReset();
+		}
 	} else {
+		sendErrorCnt = 0;
 		mySender.connected = true;
 	}
 }
@@ -312,6 +324,36 @@ void analyzeOccupancy(int timerId) {
 }
 //–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
+void radioStart() {
+#ifdef SERIAL_LCD
+    debugLCD.print("Initializing", "radio...");
+#endif
+	radio.begin();
+	radio.setRetries(15, 15);
+	radio.setPayloadSize(8);
+
+	Serial.print(F("creating a pipe "));
+	printf("x#%d => [%X], ", me, (unsigned int) mySender.pipe);
+	radio.openWritingPipe(mySender.pipe);
+	radio.printDetails();
+}
+
+void radioReset() {
+#ifdef SERIAL_LCD
+    debugLCD.print("Radio reset", "Powering down");
+#endif
+
+	radio.powerDown();
+	delay(100);
+	radio.powerUp();
+
+#ifdef SERIAL_LCD
+    debugLCD.print("Powering up...");
+#endif
+
+	radioStart();
+}
+
 void setup(void) {
 	Serial.begin(9600);
 
@@ -325,14 +367,7 @@ void setup(void) {
 	Serial.print(F("Bathroom Occupancy Notification Module: Transmit "));
 	printf("#%d!\n", me);
 
-	radio.begin();
-	radio.setRetries(15, 15);
-	radio.setPayloadSize(8);
-
-	Serial.print(F("creating a pipe "));
-	printf("x#%d => [%X], ", me, (unsigned int) mySender.pipe);
-	radio.openWritingPipe(mySender.pipe);
-	radio.printDetails();
+	radioStart();
 
 	pinMode(pinLedBlue, OUTPUT);
 	pinMode(pinLedGreen, OUTPUT);

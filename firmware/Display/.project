@@ -62,6 +62,11 @@
 			<locationURI>ArduinoHardwareLibPath/SoftwareSerial</locationURI>
 		</link>
 		<link>
+			<name>Libraries/SparkfunSerialLCD</name>
+			<type>2</type>
+			<locationURI>ArduinoPivateLibPath/SparkfunSerialLCD</locationURI>
+		</link>
+		<link>
 			<name>Libraries/Wire</name>
 			<type>2</type>
 			<locationURI>ArduinoHardwareLibPath/Wire</locationURI>

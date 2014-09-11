@@ -17,14 +17,24 @@
  *      MISO  12
  *
  * Dependencies:
- *   EEPROMEx					(saving configuration to non-volatile RAM)
- *   Encoder                    (using rotary encoder for config)
- *   NewPing                    (Sonar)
- *   RF24                       (Wireless RF24 Radio)
- *   RotaryEncoderWithButton    (high level rotary encoder abstraction)
- *   SimpleTimer                (use timers and callbacks)
+ *
+ * Arduino Libs:
  *   SoftwareSerial             (output state and options to Serial LCD)
  *   SPI                        (communications between components)
+ *
+ * 3rd Party Libs:
+ *   EEPROMEx					(saving configuration to non-volatile RAM)
+ *   Encoder                    (using rotary encoder for config)
+ *   NewPing                    (HC-SR04)
+ *   RF24                       (Wireless RF24 Radio)
+ *   SimpleTimer                (for timers and callbacks)
+ *
+ * Kiguino Libs                 (https://github.com/kigster/Kiguino/)
+ *   RotaryEncoderWithButton    (high level rotary encoder abstraction)
+ *   Sonar
+ *   LightSensor
+ *   MotionSensor
+ *   SparkfunSerialLCD
  */
 
 #include <SPI.h>
@@ -39,7 +49,7 @@
 #include <RotaryEncoderWithButton.h>
 #include <SimpleTimer.h>
 #include <SoftwareSerial.h>
-#include <SerialLCD.h>
+#include <SparkfunSerialLCD.h>
 #include "Configuration.h"
 #include "Modular.h"
 
@@ -104,7 +114,7 @@ Configuration configuration(&cfg, NULL);
 #endif
 
 #ifdef SERIAL_LCD
-SerialLCD debugLCD(pinSerialLcdRX);
+SparkfunSerialLCD debugLCD(pinSerialLcdRX);
 #endif
 
 Sonar sonar(
@@ -409,7 +419,7 @@ void loop(void) {
 	timer.run();
 #ifdef HAVE_ROTARY_KNOB
 	if (configuration.configure(&showConfigStatus)) {
-		debugLCD.print("Saving config","to the EEPROM.");
+		debugLCD.print("Saving Config","to the EEPROM.");
 		delay(1000);
 		applyConfig();
 	}

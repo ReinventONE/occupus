@@ -37,6 +37,16 @@
 			<locationURI>ArduinoPivateLibPath/Encoder</locationURI>
 		</link>
 		<link>
+			<name>Libraries/LightSensor</name>
+			<type>2</type>
+			<locationURI>ArduinoPivateLibPath/LightSensor</locationURI>
+		</link>
+		<link>
+			<name>Libraries/MotionSensor</name>
+			<type>2</type>
+			<locationURI>ArduinoPivateLibPath/MotionSensor</locationURI>
+		</link>
+		<link>
 			<name>Libraries/NewPing</name>
 			<type>2</type>
 			<locationURI>ArduinoPivateLibPath/NewPing</locationURI>
@@ -57,11 +67,6 @@
 			<locationURI>ArduinoHardwareLibPath/SPI</locationURI>
 		</link>
 		<link>
-			<name>Libraries/SerialLCD</name>
-			<type>2</type>
-			<locationURI>ArduinoPivateLibPath/SerialLCD</locationURI>
-		</link>
-		<link>
 			<name>Libraries/SimpleTimer</name>
 			<type>2</type>
 			<locationURI>ArduinoPivateLibPath/SimpleTimer</locationURI>
@@ -70,6 +75,16 @@
 			<name>Libraries/SoftwareSerial</name>
 			<type>2</type>
 			<locationURI>ArduinoHardwareLibPath/SoftwareSerial</locationURI>
+		</link>
+		<link>
+			<name>Libraries/Sonar</name>
+			<type>2</type>
+			<locationURI>ArduinoPivateLibPath/Sonar</locationURI>
+		</link>
+		<link>
+			<name>Libraries/SparkfunSerialLCD</name>
+			<type>2</type>
+			<locationURI>ArduinoPivateLibPath/SparkfunSerialLCD</locationURI>
 		</link>
 		<link>
 			<name>arduino/core</name>

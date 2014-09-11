@@ -28,7 +28,7 @@
 #define DISP_FREE 		1
 #define DISP_OCCUPIED   2
 
-#include <SerialLCD.h>
+#include <SparkfunSerialLCD.h>
 
 #define ETHERNET_SHIELD
 #define SERIAL_LCD
@@ -42,7 +42,7 @@ HTTPServer server(mac);
 
 uint8_t pinSerialLcdRX = 5;
 
-SerialLCD debugLCD(pinSerialLcdRX);
+SparkfunSerialLCD debugLCD(pinSerialLcdRX);
 
 // how many milliseconds should we wait for a dead client to come back
 #define SENSOR_CONNECTIVITY_TIMEOUT 5000

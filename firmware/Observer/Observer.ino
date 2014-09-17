@@ -72,7 +72,7 @@ uint8_t pinSerialLcdRX	= 8,
 		pinRotaryButton = 4
 		;
 
-const uint8_t me 		= 0; // 0 or 1 (offset into senders[]) and pipes[]
+const uint8_t me 		= 0; // offset into senders[] array
 #endif
 
 #ifdef SENDER_UPSTAIRS
@@ -92,8 +92,31 @@ uint8_t pinSerialLcdRX	= A1,
 		pinRotaryButton = A3
 		;
 
-const uint8_t me 		= 1; // 0 or 1 (offset into senders[]) and pipes[]
+const uint8_t me 		= 1; // offset into senders[] array
 #endif
+
+#ifdef SENDER_THIRDBOX
+//// Sender #1
+uint8_t
+		pinPhotoCell	= A0,
+		pinIRInput 		= A1,
+		pinSonarTrigger = A2,
+		pinSonarEcho 	= A3,
+
+		pinSerialLcdRX	= 8,
+
+		pinLedBlue 		= 6,
+		pinLedGreen 	= 5,
+		pinLedRed 		= 7,
+
+		pinRotaryButton = 4,
+		pinRotaryLeft   = 3,
+		pinRotaryRight  = 2
+		;
+
+const uint8_t me 		= 2; // offset into senders[] array
+#endif
+
 
 // default values if EEPROM does have anything
 configType cfg = {
@@ -155,7 +178,10 @@ typedef struct senderInfoStruct {
 
 senderInfo senders[] = {
 		{ false, 0xF0F0F0F0E1LL, 0x010 },
-		{ false, 0xF0F0F0F0D2LL, 0x020 }
+		{ false, 0xF0F0F0F0D2LL, 0x020 },
+		{ false, 0xF0F0F0F0F2LL, 0x030 },
+		{ false, 0xF0F0F0F0A2LL, 0x040 },
+		{ false, 0xF0F0F0F0C2LL, 0x050 }
 };
 
 senderInfo mySender = senders[me];

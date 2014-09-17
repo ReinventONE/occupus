@@ -47,7 +47,12 @@ SparkfunSerialLCD debugLCD(pinSerialLcdRX);
 // how many milliseconds should we wait for a dead client to come back
 #define SENSOR_CONNECTIVITY_TIMEOUT 5000
 
-RF24 radio(7,8);
+#ifdef ETHERNET_SHIELD
+RF24 radio(7,8); // ethernet shield uses 9 and 10
+#else
+RF24 radio(9,10);
+#endif
+
 SimpleTimer timer(1);
 
 observerInfo observers[] = {
@@ -102,12 +107,16 @@ void resetDeadRadios(int timerId) {
 }
 
 void showMyIP(int timerId) {
+#ifdef ETHERNET_SHIELD
 	debugLCD.print("My IP Address:", "IP: ");
 	debugLCD.serial()->print(server.ipAddress());
+#endif
 }
 
 void serveJSON(int timerId) {
+#ifdef ETHERNET_SHIELD
 	server.serveJSON(observers, numObservers);
+#endif
 }
 
 void setup(void) {

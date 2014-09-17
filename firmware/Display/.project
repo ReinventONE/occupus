@@ -47,11 +47,6 @@
 			<locationURI>ArduinoPivateLibPath/SerialLCD</locationURI>
 		</link>
 		<link>
-			<name>Libraries/SimpleNetwork</name>
-			<type>2</type>
-			<locationURI>ArduinoPivateLibPath/SimpleNetwork</locationURI>
-		</link>
-		<link>
 			<name>Libraries/SimpleTimer</name>
 			<type>2</type>
 			<locationURI>ArduinoPivateLibPath/SimpleTimer</locationURI>

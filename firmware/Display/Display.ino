@@ -13,6 +13,15 @@
  * Display LEDs:
  * 		4, 5
  *
+ * Dependencies:
+ *   NewPing                    (Sonar)
+ *   RF24                       (Wireless RF24 Radio)
+ *   SimpleTimer                (use timers and callbacks)
+ *   SPI                        (communications between components)
+ *   Wire                       (communications between components)
+ *   SoftwareSerial             (output state and options to Serial LCD)
+ *   SparkfunSerialLCD			(Serial LCD driver for Sparkfun LCD)
+ *
  */
 #include <SPI.h>
 #include "nRF24L01.h"

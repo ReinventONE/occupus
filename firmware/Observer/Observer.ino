@@ -37,25 +37,15 @@
  *   SparkfunSerialLCD
  */
 
-#include <SPI.h>
-#include "nRF24L01.h"
-#include "RF24.h"
-#include "printf.h"
-
-#include "Sonar.h"
-#include "MotionSensor.h"
-#include "LightSensor.h"
-
-#include <RotaryEncoderWithButton.h>
-#include <SimpleTimer.h>
-#include <SoftwareSerial.h>
-#include <SparkfunSerialLCD.h>
-#include "Configuration.h"
-#include "Modular.h"
 
 #define ERR_COUNT_FOR_RADIO_RESET 50
 
 #ifdef SENDER_DOWNSTAIRS
+
+#define ENABLE_SERIAL_LCD
+#define ENABLE_ROTARY_KNOB
+#define ENABLE_RADIO
+
 //// Sender #0
 uint8_t pinSerialLcdRX	= 8,
 		pinLedBlue 		= 7,
@@ -76,6 +66,11 @@ const uint8_t me 		= 0; // offset into senders[] array
 #endif
 
 #ifdef SENDER_UPSTAIRS
+
+#define ENABLE_SERIAL_LCD
+#define ENABLE_ROTARY_KNOB
+#define ENABLE_RADIO
+
 //// Sender #1
 uint8_t pinSerialLcdRX	= A1,
 		pinLedBlue 		= 7,
@@ -96,7 +91,11 @@ const uint8_t me 		= 1; // offset into senders[] array
 #endif
 
 #ifdef SENDER_THIRDBOX
-//// Sender #1
+
+#define ENABLE_SERIAL_LCD
+#define ENABLE_ROTARY_KNOB
+// #define ENABLE_RADIO
+
 uint8_t
 		pinPhotoCell	= A0,
 		pinIRInput 		= A1,
@@ -117,6 +116,29 @@ uint8_t
 const uint8_t me 		= 2; // offset into senders[] array
 #endif
 
+#include <SPI.h>
+#ifdef ENABLE_RADIO
+#include "nRF24L01.h"
+#include "RF24.h"
+#endif
+
+#ifdef ENABLE_ROTARY_KNOB
+#include <RotaryEncoderWithButton.h>
+#endif
+
+#ifdef EANBLE_SERIAL_LCD
+#include <SoftwareSerial.h>
+#include <SparkfunSerialLCD.h>
+#endif
+#include <SimpleTimer.h>
+
+#include "printf.h"
+
+#include "Sonar.h"
+#include "MotionSensor.h"
+#include "LightSensor.h"
+#include "Configuration.h"
+#include "Modular.h"
 
 // default values if EEPROM does have anything
 configType cfg = {
@@ -128,7 +150,7 @@ configType cfg = {
 	      //      that is not accessible in the bathroom, so observer does not see the person.
 };
 
-#ifdef HAVE_ROTARY_KNOB
+#ifdef ENABLE_ROTARY_KNOB
 // pinA, pinB, pinButton
 RotaryEncoderWithButton rotary(pinRotaryLeft, pinRotaryRight, pinRotaryButton);
 Configuration configuration(&cfg, &rotary);
@@ -136,7 +158,7 @@ Configuration configuration(&cfg, &rotary);
 Configuration configuration(&cfg, NULL);
 #endif
 
-#ifdef SERIAL_LCD
+#ifdef ENABLE_SERIAL_LCD
 SparkfunSerialLCD debugLCD(pinSerialLcdRX);
 #endif
 
@@ -206,7 +228,7 @@ void applyConfig() {
 	light.setThreshold(cfg.lightThreshold);
 }
 
-#ifdef HAVE_ROTARY_KNOB
+#ifdef ENABLE_ROTARY_KNOB
 void showConfigStatus() {
 	digitalWrite(pinLedRed, LOW);
 	digitalWrite(pinLedGreen, LOW);
@@ -269,24 +291,26 @@ void showStatus(int timerId) {
 }
 
 void sendStatus(int timerId) {
-	unsigned long data = occupancy.occupied | mySender.senderId;
-	bool ok = radio.write(&data, sizeof(data));
-	if (!ok) {
-		mySender.connected = false;
-		sendErrorCnt ++;
-		Serial.println(F("Error sending data over RF24"));
-		if (sendErrorCnt % ERR_COUNT_FOR_RADIO_RESET == 5) {
-#ifdef SERIAL_LCD
-			sprintf(buffer, "%d send errors", sendErrorCnt);
-			debugLCD.print(buffer, "resetting radio");
-#endif
-			delay(1000);
-			radioReset();
+	#ifdef ENABLE_RADIO
+		unsigned long data = occupancy.occupied | mySender.senderId;
+		bool ok = radio.write(&data, sizeof(data));
+		if (!ok) {
+			mySender.connected = false;
+			sendErrorCnt ++;
+			Serial.println(F("Error sending data over RF24"));
+			if (sendErrorCnt % ERR_COUNT_FOR_RADIO_RESET == 5) {
+				#ifdef ENABLE_SERIAL_LCD
+					sprintf(buffer, "%d send errors", sendErrorCnt);
+					debugLCD.print(buffer, "resetting radio");
+				#endif
+				delay(1000);
+				radioReset();
+			}
+		} else {
+			sendErrorCnt = 0;
+			mySender.connected = true;
 		}
-	} else {
-		sendErrorCnt = 0;
-		mySender.connected = true;
-	}
+	#endif
 }
 
 void detectLight(int timerId) {
@@ -316,7 +340,7 @@ void logCurrentState() {
 				sonar.getDistanceThreshold()
   			);
 
-#ifdef SERIAL_LCD
+#ifdef ENABLE_SERIAL_LCD
 	if (mySender.connected || flagStatusLCD) {
 		sprintf(buffer, "%s %s(%3d:%3d)",
 				(occupancy.occupied  	  ? "Occp": "Vcnt"),
@@ -361,41 +385,44 @@ void analyzeOccupancy(int timerId) {
 //–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 void radioStart() {
-#ifdef SERIAL_LCD
-    debugLCD.print("Initializing", "radio...");
-#endif
-	radio.begin();
-	radio.setRetries(15, 15);
-	radio.setPayloadSize(8);
+	#ifdef ENABLE_RADIO
+		#ifdef ENABLE_SERIAL_LCD
+			debugLCD.print("Initializing", "radio...");
+		#endif
+		radio.begin();
+		radio.setRetries(15, 15);
+		radio.setPayloadSize(8);
 
-	Serial.print(F("creating a pipe "));
-	printf("x#%d => [%X], ", me, (unsigned int) mySender.pipe);
-	radio.openWritingPipe(mySender.pipe);
-	radio.printDetails();
+		Serial.print(F("creating a pipe "));
+		printf("x#%d => [%X], ", me, (unsigned int) mySender.pipe);
+		radio.openWritingPipe(mySender.pipe);
+		radio.printDetails();
+	#endif
 }
 
 void radioReset() {
-#ifdef SERIAL_LCD
-    debugLCD.print("Radio reset", "Powering down");
-#endif
+	#ifdef ENABLE_RADIO
+		#ifdef ENABLE_SERIAL_LCD
+			debugLCD.print("Radio reset", "Powering down");
+		#endif
 
-	radio.powerDown();
-	delay(100);
-	radio.powerUp();
+		radio.powerDown();
+		delay(100);
+		radio.powerUp();
 
-#ifdef SERIAL_LCD
-    debugLCD.print("Powering up...");
-#endif
-
-	radioStart();
+		#ifdef ENABLE_SERIAL_LCD
+		debugLCD.print("Powering up...");
+		#endif
+		radioStart();
+	#endif
 }
 
 void setup(void) {
 	Serial.begin(9600);
 
-#ifdef  HAVE_ROTARY_KNOB
-	rotary.begin();
-#endif
+	#ifdef ENABLE_ROTARY_KNOB
+		rotary.begin();
+	#endif
 
 	printf_begin();
 
@@ -403,27 +430,30 @@ void setup(void) {
 	Serial.print(F("Bathroom Occupancy Notification Module: Transmit "));
 	printf("#%d!\n", me);
 
-	radioStart();
+	#ifdef ENABLE_RADIO
+		radioStart();
+	#endif
 
 	pinMode(pinLedBlue, OUTPUT);
 	pinMode(pinLedGreen, OUTPUT);
 	pinMode(pinSerialLcdRX, OUTPUT);
 	pinMode(pinLedRed, OUTPUT);
 
-#ifdef SERIAL_LCD
-	debugLCD.init();
-    delay(200); // wait for display to boot up
-    debugLCD.print("PooCast v1.0", "Booting...");
-    delay(1000);
-    debugLCD.print("Calibrating", "motion sensor...");
-#endif
+	#ifdef ENABLE_SERIAL_LCD
+		debugLCD.init();
+		delay(200); // wait for display to boot up
+		debugLCD.print("PooCast v1.0", "Booting...");
+		delay(1000);
+		debugLCD.print("Calibrating", "motion sensor...");
+	#endif
 
 	motion.init(5000);
 
-#ifdef HAVE_ROTARY_KNOB
-	debugLCD.print("Reading config ", "from EEPROM...");
-	delay(1000);
-#endif
+	#ifdef ENABLE_ROTARY_KNOB
+		debugLCD.print("Reading config ", "from EEPROM...");
+		delay(1000);
+	#endif
+
 	configuration.init();
 	applyConfig();
 
@@ -435,7 +465,7 @@ void setup(void) {
 
 	timer.setInterval(110, 	&detectLight);
 	timer.setInterval(220,  &detectMotion);
-	timer.setInterval(330,  &detectSonar);
+	timer.setInterval(50,   &detectSonar);
 
 	timer.setInterval(502,  &analyzeOccupancy);
 }
@@ -443,13 +473,13 @@ void setup(void) {
 
 void loop(void) {
 	timer.run();
-#ifdef HAVE_ROTARY_KNOB
-	if (configuration.configure(&showConfigStatus)) {
-		debugLCD.print("Saving Config","to the EEPROM.");
-		delay(1000);
-		applyConfig();
-	}
-#endif
+	#ifdef ENABLE_ROTARY_KNOB
+		if (configuration.configure(&showConfigStatus)) {
+			debugLCD.print("Saving Config","to the EEPROM.");
+			delay(1000);
+			applyConfig();
+		}
+	#endif
 	delay(1);
 }
 

@@ -36,6 +36,7 @@
  *   MotionSensor
  *   SparkfunSerialLCD
  */
+#include "Modular.h"
 
 
 #define ERR_COUNT_FOR_RADIO_RESET 50
@@ -94,7 +95,7 @@ const uint8_t me 		= 1; // offset into senders[] array
 
 #define ENABLE_SERIAL_LCD
 #define ENABLE_ROTARY_KNOB
-// #define ENABLE_RADIO
+#define ENABLE_RADIO
 
 uint8_t
 		pinPhotoCell	= A0,
@@ -138,7 +139,6 @@ const uint8_t me 		= 2; // offset into senders[] array
 #include "MotionSensor.h"
 #include "LightSensor.h"
 #include "Configuration.h"
-#include "Modular.h"
 
 // default values if EEPROM does have anything
 configType cfg = {

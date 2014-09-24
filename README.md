@@ -10,6 +10,36 @@ This project was conceived of the actual need to know when one or both bathrooms
 
 Simply install one of the sensor modules in each bathroom, aim Sonar sensor at the toilet, adjust the Sonar distance parameters using rotary knob, then repeat for each other bathroom, and then install the display unit in a common well visible place.  Optionally, write a web app that pulls JSON http server, and provides you with a rolling average of your office toilet time :)
 
+### Software Dependencies
+
+Firmware depends on [several simple libraries](https://github.com/kigster/Kiguino/tree/master/libraries), packaged under the [Kiguino Project](https://github.com/kigster/kiguino), and are written to encapsulate access to the sensors, which are all available in another repo, that should be installed into your Arduino libraries folder first.
+
+Here is the full set of dependencies:
+
+Arduino Libs
+
+* SoftwareSerial (output state and options to Serial LCD)
+* SPI (communications between components)
+
+3rd Party Libs
+
+* EEPROMEx (for saving configuration to non-volatile RAM)
+* Encoder (using rotary encoder for config)
+* NewPing (for HC-SR04)
+* nRF24L01(+) 2.4GHz Wireless Transceiver
+* SimpleTimer (for timers and callbacks)
+
+Kiguino Libs [https://github.com/kigster/Kiguino/](https://github.com/kigster/Kiguino/)
+
+* RotaryEncoderWithButton (high level rotary encoder abstraction)
+* Sonar (wrapper around NewPing)
+* LightSensor
+* MotionSensor
+* SparkfunSerialLCD (wrapper around SoftwareSerial)
+ 
+Display Unit may also optionally depend on 
+* Ethernet library
+
 ## BORAT Modules
 
 ### Observer

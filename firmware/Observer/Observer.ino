@@ -38,6 +38,7 @@
  */
 #include "Modular.h"
 
+#include "Modular.h"
 
 #define ERR_COUNT_FOR_RADIO_RESET 50
 
@@ -63,7 +64,6 @@ uint8_t pinSerialLcdRX	= 8,
 		pinRotaryButton = 4
 		;
 
-const uint8_t me 		= 0; // offset into senders[] array
 #endif
 
 #ifdef SENDER_UPSTAIRS
@@ -88,7 +88,6 @@ uint8_t pinSerialLcdRX	= A1,
 		pinRotaryButton = A3
 		;
 
-const uint8_t me 		= 1; // offset into senders[] array
 #endif
 
 #ifdef SENDER_THIRDBOX
@@ -114,8 +113,9 @@ uint8_t
 		pinRotaryRight  = 2
 		;
 
-const uint8_t me 		= 2; // offset into senders[] array
 #endif
+
+uint8_t me = 0; // default offset into senders[] array that
 
 #include <SPI.h>
 #ifdef ENABLE_RADIO
@@ -127,14 +127,13 @@ const uint8_t me 		= 2; // offset into senders[] array
 #include <RotaryEncoderWithButton.h>
 #endif
 
-#ifdef EANBLE_SERIAL_LCD
+#ifdef ENABLE_SERIAL_LCD
 #include <SoftwareSerial.h>
 #include <SparkfunSerialLCD.h>
 #endif
+
 #include <SimpleTimer.h>
-
 #include "printf.h"
-
 #include "Sonar.h"
 #include "MotionSensor.h"
 #include "LightSensor.h"
@@ -144,7 +143,7 @@ const uint8_t me 		= 2; // offset into senders[] array
 configType cfg = {
 	 200, // light (0 - 1023)
 	5000, // (ms) motion pause (once detected, ignore during next 5s), max 30,000ms.
-	 100, // (cm) sonar distance to recognized objects within, up to 500
+ SONAR_MAX_RANGE, // (cm) sonar distance to recognized objects within, up to 500
 	  15  // (s)  activity timeout, if activity no longer detected but light is on
 	      //      consider room occupied for this many seconds still. Helps if there is a spot
 	      //      that is not accessible in the bathroom, so observer does not see the person.
@@ -165,8 +164,7 @@ SparkfunSerialLCD debugLCD(pinSerialLcdRX);
 Sonar sonar(
 		pinSonarTrigger,
 		pinSonarEcho,
-		500,				   // Maximum distance we want to ping for (in centimeters).
-			  	  	  	  	   // Maximum sensor distance is rated at 400-500cm.
+		SONAR_MAX_RANGE,	   // Maximum distance we want to ping for (in centimeters)
 		cfg.sonarThreshold);   // Recognize objects within this many centimeters
 
 MotionSensor motion(pinIRInput, cfg.motionTolerance);
@@ -176,7 +174,7 @@ RF24 radio(9, 10);
 SimpleTimer timer(1);
 
 char buffer[90];
-bool flagStatusLCD = false;
+bool flagStatusLCD = false, errorLED = false;
 int sendErrorCnt = 0;
 
 typedef struct OccupancyStruct {
@@ -191,30 +189,18 @@ typedef struct OccupancyStruct {
 } occupancyStatus;
 
 occupancyStatus occupancy;
-
-typedef struct senderInfoStruct {
-	bool connected;
-	uint64_t pipe;
-	uint8_t senderId;
-} senderInfo;
-
-senderInfo senders[] = {
-		{ false, 0xF0F0F0F0E1LL, 0x010 },
-		{ false, 0xF0F0F0F0D2LL, 0x020 },
-		{ false, 0xF0F0F0F0F2LL, 0x030 },
-		{ false, 0xF0F0F0F0A2LL, 0x040 },
-		{ false, 0xF0F0F0F0C2LL, 0x050 }
-};
-
-senderInfo mySender = senders[me];
+senderInfo mySenderId;
 
 // combinations of LEDs to turn on for each mode
 uint8_t configLedModes[][3] = {
 	{0,			 	0,				0}, // normal
-	{pinLedRed, 	0,				0},
-	{pinLedGreen, 	0,				0},
-	{pinLedBlue, 	0,				0},
-	{pinLedRed, 	pinLedGreen,	0}
+	{pinLedGreen, 	pinLedBlue,		0}, // room
+	{pinLedRed, 	0,				0}, // light
+	{pinLedGreen, 	0,				0}, // motion
+	{pinLedBlue, 	0,				0}, // sonar
+	{pinLedRed, 	pinLedGreen,	0},  // timeout
+	{pinLedRed, 	pinLedGreen,	pinLedBlue}, // save settings?
+	{pinLedRed, 	0,			  	pinLedBlue}  // radio
 };
 
 void resetOccupancy() {
@@ -226,16 +212,27 @@ void applyConfig() {
 	sonar.setDistanceThreshold(cfg.sonarThreshold);
 	motion.setPause(cfg.motionTolerance);
 	light.setThreshold(cfg.lightThreshold);
+	if (cfg.mySenderIndex != me) {
+		me = cfg.mySenderIndex;
+		mySenderId = senders[me];
+		logRoom();
+	}
+	#ifdef ENABLE_RADIO
+		if (cfg.session.shouldStartRadio && !cfg.session.isRadioRunning) {
+			radioPowerUp();
+		} else if (cfg.session.shouldStopRadio && cfg.session.isRadioRunning) {
+			radioPowerDown();
+		}
+	#endif
 }
 
 #ifdef ENABLE_ROTARY_KNOB
 void showConfigStatus() {
 	digitalWrite(pinLedRed, LOW);
 	digitalWrite(pinLedGreen, LOW);
+	digitalWrite(pinLedBlue, LOW);
 
 	if (configuration.mode != NORMAL) {
-		digitalWrite(pinLedBlue, LOW);
-
 		uint8_t *leds;
 		leds = configLedModes[configuration.mode];
 		for (int i = 0; leds[i] != 0; i++) {
@@ -247,7 +244,10 @@ void showConfigStatus() {
 
 	// print status of our configuration
 	switch (configuration.mode) {
-	case SONAR:
+	case ROOM:
+		sprintf(buffer, "CFG: Current    " "Room: %s", senders[cfg.mySenderIndex].name);
+		break;
+ 	case SONAR:
 		sprintf(buffer, "CFG: Sonar Thres" "Dist (cm) :%4d ", cfg.sonarThreshold);
 		break;
 	case MOTION:
@@ -258,6 +258,22 @@ void showConfigStatus() {
 		break;
 	case GRACE:
 		sprintf(buffer, "CFG: ExitTimeout" "(Seconds) :%4d ", (unsigned int) cfg.occupancyGracePeriod);
+		break;
+	case SAVING:
+		sprintf(buffer, "Save All?    %3s", (cfg.session.shouldSaveSettings ? "Yes" : " No"));
+		break;
+	case RADIO_TOGGLE:
+		if (cfg.session.isRadioRunning) {
+			sprintf(buffer,
+					    "The Radio is ON.",
+					    "Shutdown?    %3s",
+					(cfg.session.shouldStopRadio? "YES" : " No"));
+		} else {
+			sprintf(buffer,
+						"The Radio is OFF",
+						"Start it up? %3s",
+					(cfg.session.shouldStartRadio? "YES" : " No"));
+		}
 		break;
 	default:
 		sprintf(buffer,"                 " "             ");
@@ -277,38 +293,48 @@ void showConfigStatus() {
 //
 // Timers
 void showStatus(int timerId) {
-	if (mySender.connected) {
+	if (mySenderId.connected || !configuration.cfg->session.isRadioRunning) {
 		digitalWrite(pinLedRed, LOW);
 		digitalWrite(pinLedBlue, occupancy.occupied ? HIGH : LOW);
 		digitalWrite(pinLedGreen, occupancy.occupied ? LOW : HIGH);
 	} else {
 		digitalWrite(pinLedBlue, LOW);
 		digitalWrite(pinLedGreen, LOW);
-		digitalWrite(pinLedRed, HIGH);
-		delay(200);
-		digitalWrite(pinLedRed, LOW);
+		errorLED = !errorLED;
+		digitalWrite(pinLedRed, errorLED ? HIGH : LOW);
 	}
 }
 
 void sendStatus(int timerId) {
 	#ifdef ENABLE_RADIO
-		unsigned long data = occupancy.occupied | mySender.senderId;
-		bool ok = radio.write(&data, sizeof(data));
-		if (!ok) {
-			mySender.connected = false;
-			sendErrorCnt ++;
-			Serial.println(F("Error sending data over RF24"));
-			if (sendErrorCnt % ERR_COUNT_FOR_RADIO_RESET == 5) {
-				#ifdef ENABLE_SERIAL_LCD
-					sprintf(buffer, "%d send errors", sendErrorCnt);
-					debugLCD.print(buffer, "resetting radio");
-				#endif
-				delay(1000);
-				radioReset();
+		if (configuration.cfg->session.isRadioRunning) {
+			unsigned long data = occupancy.occupied | mySenderId.senderId;
+			bool ok = radio.write(&data, sizeof(data));
+			if (!ok) {
+				mySenderId.connected = false;
+				sendErrorCnt ++;
+				Serial.println(F("Error sending data over RF24"));
+				if (sendErrorCnt % ERR_COUNT_FOR_RADIO_RESET == 5) {
+					#ifdef ENABLE_SERIAL_LCD
+						sprintf(buffer, "%d send errors :( ", sendErrorCnt);
+						debugLCD.print(buffer, "resetting radio");
+					#endif
+					delay(1000);
+
+					#ifdef ENABLE_SERIAL_LCD
+						debugLCD.print("Powering Down!");
+					#endif
+					radioPowerDown();
+
+					#ifdef ENABLE_SERIAL_LCD
+						debugLCD.print("Powering Up!");
+					#endif
+					radioPowerUp();
+				}
+			} else {
+				sendErrorCnt = 0;
+				mySenderId.connected = true;
 			}
-		} else {
-			sendErrorCnt = 0;
-			mySender.connected = true;
 		}
 	#endif
 }
@@ -329,7 +355,8 @@ void detectSonar(int timerId) {
 }
 
 void logCurrentState() {
-	printf("Occupied? %s | Lights? %s (%4d/%4d) | Motion? %s | Sonar? %s (%4d/%4d)\n",
+	printf("%s: Occupied? %s | Lights? %s (%4d/%4d) | Motion? %s | Sonar? %s (%4d/%4d/%d)\n",
+			mySenderId.name,
 			(occupancy.occupied  	  ? "YES" : " NO"),
 			(occupancy.lightOn  ? "YES" : " NO"),
 				light.getLightReading(),
@@ -337,11 +364,12 @@ void logCurrentState() {
 			(occupancy.motionDetected ? "YES" : " NO"),
 			(occupancy.sonarDetected  ? "YES" : " NO"),
 				sonar.getDistance(),
-				sonar.getDistanceThreshold()
+				sonar.getDistanceThreshold(),
+				sonar.getMaxDistance()
   			);
 
 #ifdef ENABLE_SERIAL_LCD
-	if (mySender.connected || flagStatusLCD) {
+	if (mySenderId.connected || flagStatusLCD || !(configuration.cfg->session.isRadioRunning)) {
 		sprintf(buffer, "%s %s(%3d:%3d)",
 				(occupancy.occupied  	  ? "Occp": "Vcnt"),
 				(occupancy.lightOn  	  ? "+L"  : "-L"), light.getLightReading(), light.getThreshold());
@@ -357,6 +385,15 @@ void logCurrentState() {
 	flagStatusLCD = !flagStatusLCD;
 
 #endif
+}
+
+void logRoom() {
+	sprintf(buffer, "%s", senders[cfg.mySenderIndex].name);
+	#ifdef ENABLE_SERIAL_LCD
+		debugLCD.print("Assigned Room:  ", buffer);
+	#endif
+	printf("%s\n", buffer);
+	delay(1000);
 }
 
 void analyzeOccupancy(int timerId) {
@@ -394,28 +431,36 @@ void radioStart() {
 		radio.setPayloadSize(8);
 
 		Serial.print(F("creating a pipe "));
-		printf("x#%d => [%X], ", me, (unsigned int) mySender.pipe);
-		radio.openWritingPipe(mySender.pipe);
+		printf("x#%d => [%X], ", me, (unsigned int) mySenderId.pipe);
+		radio.openWritingPipe(mySenderId.pipe);
 		radio.printDetails();
+		configuration.setIsRadioRunning(true);
 	#endif
 }
 
-void radioReset() {
+
+void radioPowerDown() {
 	#ifdef ENABLE_RADIO
 		#ifdef ENABLE_SERIAL_LCD
 			debugLCD.print("Radio reset", "Powering down");
 		#endif
-
 		radio.powerDown();
 		delay(100);
-		radio.powerUp();
+		configuration.setIsRadioRunning(false);
+	#endif
+}
 
+void radioPowerUp() {
+	#ifdef ENABLE_RADIO
 		#ifdef ENABLE_SERIAL_LCD
-		debugLCD.print("Powering up...");
+			debugLCD.print("Radio start", "Powering UP");
 		#endif
+		radio.powerUp();
 		radioStart();
 	#endif
 }
+
+//–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 void setup(void) {
 	Serial.begin(9600);
@@ -442,9 +487,9 @@ void setup(void) {
 	#ifdef ENABLE_SERIAL_LCD
 		debugLCD.init();
 		delay(200); // wait for display to boot up
-		debugLCD.print("PooCast v1.0", "Booting...");
+		debugLCD.print("BORAT(c)2014 v2", "Booting...");
 		delay(1000);
-		debugLCD.print("Calibrating", "motion sensor...");
+		debugLCD.print("BORAT(c)2014 v2", "Calibrating...");
 	#endif
 
 	motion.init(5000);
@@ -454,20 +499,24 @@ void setup(void) {
 		delay(1000);
 	#endif
 
+	mySenderId = senders[me];
+
 	configuration.init();
 	applyConfig();
 
 	resetOccupancy();
 	memset(buffer, 0x0, sizeof(buffer));
 
-	timer.setInterval(501,  &showStatus);
-	timer.setInterval(500,  &sendStatus);
+	timer.setInterval( 501,  &showStatus);
+	timer.setInterval( 250,  &sendStatus);
 
-	timer.setInterval(110, 	&detectLight);
-	timer.setInterval(220,  &detectMotion);
-	timer.setInterval(50,   &detectSonar);
+	timer.setInterval( 250,  &detectLight);
+	timer.setInterval( 150,  &detectMotion);
+	timer.setInterval(  50,  &detectSonar);
 
-	timer.setInterval(502,  &analyzeOccupancy);
+	timer.setInterval( 502,  &analyzeOccupancy);
+
+	logRoom();
 }
 
 
@@ -475,9 +524,14 @@ void loop(void) {
 	timer.run();
 	#ifdef ENABLE_ROTARY_KNOB
 		if (configuration.configure(&showConfigStatus)) {
-			debugLCD.print("Saving Config","to the EEPROM.");
-			delay(1000);
-			applyConfig();
+			if (configuration.cfg->session.shouldSaveSettings) {
+				debugLCD.print("Saving Config","to the EEPROM.");
+				delay(1000);
+				applyConfig();
+			} else {
+				debugLCD.print("Not Saving...", "Changes reverted");
+				delay(2000);
+			}
 		}
 	#endif
 	delay(1);

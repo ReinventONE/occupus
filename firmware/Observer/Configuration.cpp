@@ -1,7 +1,6 @@
 #include "Configuration.h"
 
-Configuration::Configuration(
-		configType *pConfig,
+Configuration::Configuration(configType *pConfig,
 		RotaryEncoderWithButton *pRotary) {
 	cfg = pConfig;
 	mode = NORMAL;
@@ -21,11 +20,12 @@ void Configuration::readFromEPROM() {
 	uint32_t secret = EEPROM.readLong(EEPROM_SECRET_ADDRESS);
 	if (secret == EEPROM_SECRET_VALUE) {
 		EEPROM.readBlock(EEPROM_CONFIG_ADDRESS, _eePromConfig);
-		printf("EEPROM: L=%d M=%d D=%d G=%d\n",
+		printf("EEPROM: L=%d M=%d D=%d G=%d me=%d\n",
 				(int) _eePromConfig.lightThreshold,
 				(int) _eePromConfig.motionTolerance,
 				(int) _eePromConfig.sonarThreshold,
-				(int) _eePromConfig.occupancyGracePeriod);
+				(int) _eePromConfig.occupancyGracePeriod,
+				(int) _eePromConfig.mySenderIndex);
 		constrainConfig(&_eePromConfig);
 		memcpy(cfg, &_eePromConfig, sizeof(_eePromConfig));
 	} else {
@@ -39,11 +39,15 @@ void Configuration::saveToEPROM() {
 	EEPROM.updateBlock(EEPROM_CONFIG_ADDRESS, _eePromConfig);
 }
 
+void Configuration::setIsRadioRunning(bool value) {
+	cfg->session.isRadioRunning = value;
+}
 
 bool Configuration::configure(configStatusCallback callback) {
 	if (_rotary->buttonClicked() && mode == NORMAL) {
 		if (enterConfiguration(callback)) {
-			saveToEPROM();
+			if (cfg->session.shouldSaveSettings)
+				saveToEPROM();
 		}
 		return true;
 	} else {
@@ -52,8 +56,10 @@ bool Configuration::configure(configStatusCallback callback) {
 }
 
 void Configuration::nextMode(configStatusCallback callback) {
-	mode = (mode == GRACE) ? NORMAL : (modeType) ((int)mode + 1);
-	if (callback != NULL) {	callback(); }
+	mode = (mode == LAST_MODE) ? NORMAL : (modeType) ((int) mode + 1);
+	if (callback != NULL) {
+		callback();
+	}
 }
 
 void Configuration::constrainConfig(configType *config) {
@@ -61,8 +67,8 @@ void Configuration::constrainConfig(configType *config) {
 	config->motionTolerance = constrain(config->motionTolerance, 100, 30000);
 	config->lightThreshold = constrain(config->lightThreshold, 0, 1023);
 	config->occupancyGracePeriod = constrain(config->occupancyGracePeriod, 1, 60);
+	config->mySenderIndex = constrain(config->mySenderIndex, 0, 4);
 }
-
 
 bool Configuration::enterConfiguration(configStatusCallback callback) {
 	nextMode(callback);
@@ -70,8 +76,14 @@ bool Configuration::enterConfiguration(configStatusCallback callback) {
 	while (mode != NORMAL) {
 		int delta = _rotary->rotaryDelta();
 		if (delta != 0) {
+			Serial.print("delta is");
+			Serial.println(delta);
 			changed = true;
 			switch (mode) {
+			case ROOM:
+				delta = (delta / abs(delta));
+				cfg->mySenderIndex += delta;
+				break;
 			case SONAR:
 				cfg->sonarThreshold += delta;
 				break;
@@ -87,11 +99,35 @@ bool Configuration::enterConfiguration(configStatusCallback callback) {
 				}
 				cfg->occupancyGracePeriod += delta;
 				break;
+			case SAVING:
+				cfg->session.shouldSaveSettings = ((delta > 0) ? true : false);
+				break;
+			case RADIO_TOGGLE:
+				if (cfg->session.isRadioRunning) {
+					if (delta > 0) {
+						cfg->session.shouldStopRadio = true;
+						cfg->session.shouldStartRadio = false;
+					} else {
+						cfg->session.shouldStopRadio = false;
+						cfg->session.shouldStartRadio = false;
+					}
+				} else {
+					if (delta < 0) {
+						cfg->session.shouldStopRadio = false;
+						cfg->session.shouldStartRadio = false;
+					} else {
+						cfg->session.shouldStopRadio = false;
+						cfg->session.shouldStartRadio = true;
+					}
+				}
+				break;
 			default:
 				mode = NORMAL;
 			}
 			constrainConfig(cfg);
-			if (callback != NULL) {	callback(); }
+			if (callback != NULL) {
+				callback();
+			}
 		}
 
 		if (_rotary->buttonClicked()) {

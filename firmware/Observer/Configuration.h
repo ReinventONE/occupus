@@ -23,10 +23,16 @@
 
 typedef enum {
 	NORMAL = 0,
+	ROOM,
 	LIGHT,
 	MOTION,
 	SONAR,
-	GRACE } modeType;
+	GRACE,
+	RADIO_TOGGLE,
+	SAVING }
+	modeType;
+
+#define LAST_MODE SAVING
 
 typedef void(*configStatusCallback)(void);
 
@@ -37,14 +43,38 @@ const uint32_t EEPROM_SECRET_VALUE 		= 0x19d7e41d;
 const uint32_t EEPROM_SECRET_ADDRESS 	= 0;
 const uint32_t EEPROM_CONFIG_ADDRESS 	= 8;
 
+typedef struct nonPersistedSettings {
+	bool shouldSaveSettings;
+	bool shouldStopRadio;
+	bool shouldStartRadio;
+	bool isRadioRunning;
+} unPersistedType;
+
 // Various thresholds that trigger sensors
 typedef struct configStruct {
 	uint16_t lightThreshold;
 	uint32_t motionTolerance;
 	uint16_t sonarThreshold;
 	uint32_t occupancyGracePeriod;
+	uint8_t  mySenderIndex;
+
+	unPersistedType session;
 } configType;
 
+typedef struct senderInfoStruct {
+	bool connected;
+	uint64_t pipe;
+	uint8_t senderId;
+	char name[16];
+} senderInfo;
+
+const senderInfo senders[] = {
+		{ false, 0xF0F0F0F0E1LL, 0x010, "Downstairs"},
+		{ false, 0xF0F0F0F0D2LL, 0x020, "Upstairs"},
+		{ false, 0xF0F0F0F0F2LL, 0x030, "Room 3"},
+		{ false, 0xF0F0F0F0A2LL, 0x040, "Room 4"},
+		{ false, 0xF0F0F0F0C2LL, 0x050, "Room 5"}
+};
 
 class Configuration {
 public:
@@ -52,6 +82,7 @@ public:
 	void init();
 	void saveToEPROM();
 	void readFromEPROM();
+	void setIsRadioRunning(bool value);
 	bool configure(configStatusCallback callback);
 	configType *cfg;
 	modeType mode;
@@ -61,6 +92,8 @@ private:
 	void nextMode(configStatusCallback callback);
 	bool enterConfiguration(configStatusCallback callback);
 	RotaryEncoderWithButton *_rotary;
+	bool _isRadioOn;
+	bool _wasRadioOn;
 };
 
 #endif /* CONFIGURATION_H_ */

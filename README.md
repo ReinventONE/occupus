@@ -23,13 +23,13 @@ Arduino Libs
 
 3rd Party Libs
 
-* EEPROMEx (for saving configuration to non-volatile RAM)
-* Encoder (using rotary encoder for config)
-* NewPing (for HC-SR04)
-* nRF24L01(+) 2.4GHz Wireless Transceiver
-* SimpleTimer (for timers and callbacks)
+* [EEPROMEx](http://playground.arduino.cc/Code/EEPROMex)
+* [Encoder](http://www.pjrc.com/teensy/td_libs_Encoder.html)
+* [NewPing](https://code.google.com/p/arduino-new-ping/) (for HC-SR04)
+* [nRF24L01(+)](http://maniacbug.github.io/RF24/) 2.4GHz Wireless Transceiver
+* [SimpleTimer](https://github.com/jfturcot/SimpleTimer) (for timers and callbacks)
 
-Kiguino Libs [https://github.com/kigster/Kiguino/](https://github.com/kigster/Kiguino/)
+Kiguino Libs: these are all available here [https://github.com/kigster/Kiguino/](https://github.com/kigster/Kiguino/)
 
 * RotaryEncoderWithButton (high level rotary encoder abstraction)
 * Sonar (wrapper around NewPing)

@@ -4,12 +4,17 @@ Configuration::Configuration(configType *pConfig,
 		RotaryEncoderWithButton *pRotary) {
 	cfg = pConfig;
 	mode = NORMAL;
+	//memset(&_session, 0x0, sizeof(unPersistedType));
 	_rotary = pRotary;
 }
 
 void Configuration::init() {
 	if (_rotary != NULL)
 		readFromEPROM();
+}
+
+unPersistedType *Configuration::session() {
+	return &_session;
 }
 
 void Configuration::readFromEPROM() {
@@ -39,14 +44,10 @@ void Configuration::saveToEPROM() {
 	EEPROM.updateBlock(EEPROM_CONFIG_ADDRESS, _eePromConfig);
 }
 
-void Configuration::setIsRadioRunning(bool value) {
-	cfg->session.isRadioRunning = value;
-}
-
 bool Configuration::configure(configStatusCallback callback) {
 	if (_rotary->buttonClicked() && mode == NORMAL) {
 		if (enterConfiguration(callback)) {
-			if (cfg->session.shouldSaveSettings)
+			if (session()->shouldSaveSettings)
 				saveToEPROM();
 		}
 		return true;
@@ -57,6 +58,7 @@ bool Configuration::configure(configStatusCallback callback) {
 
 void Configuration::nextMode(configStatusCallback callback) {
 	mode = (mode == LAST_MODE) ? NORMAL : (modeType) ((int) mode + 1);
+	if (mode == SAVING && !_session.settingsChanged) { mode = (modeType)(mode + 1); }
 	if (callback != NULL) {
 		callback();
 	}
@@ -71,14 +73,13 @@ void Configuration::constrainConfig(configType *config) {
 }
 
 bool Configuration::enterConfiguration(configStatusCallback callback) {
+	memset(&_session, 0x0, sizeof(unPersistedType));
 	nextMode(callback);
 	bool changed = false;
 	while (mode != NORMAL) {
 		int delta = _rotary->rotaryDelta();
 		if (delta != 0) {
-			Serial.print("delta is");
-			Serial.println(delta);
-			changed = true;
+			_session.settingsChanged = true;
 			switch (mode) {
 			case ROOM:
 				delta = (delta / abs(delta));
@@ -100,26 +101,10 @@ bool Configuration::enterConfiguration(configStatusCallback callback) {
 				cfg->occupancyGracePeriod += delta;
 				break;
 			case SAVING:
-				cfg->session.shouldSaveSettings = ((delta > 0) ? true : false);
+				_session.shouldSaveSettings = (delta > 0);
 				break;
 			case RADIO_TOGGLE:
-				if (cfg->session.isRadioRunning) {
-					if (delta > 0) {
-						cfg->session.shouldStopRadio = true;
-						cfg->session.shouldStartRadio = false;
-					} else {
-						cfg->session.shouldStopRadio = false;
-						cfg->session.shouldStartRadio = false;
-					}
-				} else {
-					if (delta < 0) {
-						cfg->session.shouldStopRadio = false;
-						cfg->session.shouldStartRadio = false;
-					} else {
-						cfg->session.shouldStopRadio = false;
-						cfg->session.shouldStartRadio = true;
-					}
-				}
+				_session.shouldToggleRadioState = (delta > 0);
 				break;
 			default:
 				mode = NORMAL;

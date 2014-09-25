@@ -28,26 +28,25 @@ typedef enum {
 	MOTION,
 	SONAR,
 	GRACE,
-	RADIO_TOGGLE,
-	SAVING }
-	modeType;
+	SAVING,
+	RADIO_TOGGLE
+}	modeType;
 
-#define LAST_MODE SAVING
+#define LAST_MODE RADIO_TOGGLE
 
 typedef void(*configStatusCallback)(void);
 
 // start reading from the first byte (address 120) of the EEPROM
 const int EEPROM_MEM_BASE = 0;
 // if this value was written we've saved before
-const uint32_t EEPROM_SECRET_VALUE 		= 0x19d7e41d;
+const uint32_t EEPROM_SECRET_VALUE 		= 0x1998ffac;
 const uint32_t EEPROM_SECRET_ADDRESS 	= 0;
 const uint32_t EEPROM_CONFIG_ADDRESS 	= 8;
 
 typedef struct nonPersistedSettings {
 	bool shouldSaveSettings;
-	bool shouldStopRadio;
-	bool shouldStartRadio;
-	bool isRadioRunning;
+	bool shouldToggleRadioState;
+	bool settingsChanged;
 } unPersistedType;
 
 // Various thresholds that trigger sensors
@@ -57,15 +56,13 @@ typedef struct configStruct {
 	uint16_t sonarThreshold;
 	uint32_t occupancyGracePeriod;
 	uint8_t  mySenderIndex;
-
-	unPersistedType session;
 } configType;
 
 typedef struct senderInfoStruct {
 	bool connected;
 	uint64_t pipe;
 	uint8_t senderId;
-	char name[16];
+	char name[11 ];
 } senderInfo;
 
 const senderInfo senders[] = {
@@ -82,13 +79,14 @@ public:
 	void init();
 	void saveToEPROM();
 	void readFromEPROM();
-	void setIsRadioRunning(bool value);
 	bool configure(configStatusCallback callback);
+	unPersistedType *session();
 	configType *cfg;
 	modeType mode;
 private:
 	void constrainConfig(configType *config);
 	configType _eePromConfig;
+	unPersistedType _session;
 	void nextMode(configStatusCallback callback);
 	bool enterConfiguration(configStatusCallback callback);
 	RotaryEncoderWithButton *_rotary;

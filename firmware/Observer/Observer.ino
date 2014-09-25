@@ -121,6 +121,9 @@ uint8_t me = 0; // default offset into senders[] array that
 #ifdef ENABLE_RADIO
 #include "nRF24L01.h"
 #include "RF24.h"
+bool isRadioEnabled = true;
+#else
+bool isRadioEnabled = false;
 #endif
 
 #ifdef ENABLE_ROTARY_KNOB
@@ -176,6 +179,7 @@ SimpleTimer timer(1);
 char buffer[90];
 bool flagStatusLCD = false, errorLED = false;
 int sendErrorCnt = 0;
+const char YES[] = "YES", NO[] = "NO ";
 
 typedef struct OccupancyStruct {
 	bool occupied;
@@ -217,13 +221,6 @@ void applyConfig() {
 		mySenderId = senders[me];
 		logRoom();
 	}
-	#ifdef ENABLE_RADIO
-		if (cfg.session.shouldStartRadio && !cfg.session.isRadioRunning) {
-			radioPowerUp();
-		} else if (cfg.session.shouldStopRadio && cfg.session.isRadioRunning) {
-			radioPowerDown();
-		}
-	#endif
 }
 
 #ifdef ENABLE_ROTARY_KNOB
@@ -260,19 +257,15 @@ void showConfigStatus() {
 		sprintf(buffer, "CFG: ExitTimeout" "(Seconds) :%4d ", (unsigned int) cfg.occupancyGracePeriod);
 		break;
 	case SAVING:
-		sprintf(buffer, "Save All?    %3s", (cfg.session.shouldSaveSettings ? "Yes" : " No"));
+		sprintf(buffer, "CFG: Save       " "Changes?    %3s", (configuration.session()->shouldSaveSettings ? YES : NO));
 		break;
 	case RADIO_TOGGLE:
-		if (cfg.session.isRadioRunning) {
-			sprintf(buffer,
-					    "The Radio is ON.",
-					    "Shutdown?    %3s",
-					(cfg.session.shouldStopRadio? "YES" : " No"));
+		if (isRadioEnabled) {
+			sprintf(buffer, "Radio Enabled.  "
+					"Stop Radio?  %3s", configuration.session()->shouldToggleRadioState ? YES : NO);
 		} else {
-			sprintf(buffer,
-						"The Radio is OFF",
-						"Start it up? %3s",
-					(cfg.session.shouldStartRadio? "YES" : " No"));
+			sprintf(buffer, "Radio Disabled. "
+					"Start Radio? %3s", configuration.session()->shouldToggleRadioState ? YES : NO);
 		}
 		break;
 	default:
@@ -293,7 +286,7 @@ void showConfigStatus() {
 //
 // Timers
 void showStatus(int timerId) {
-	if (mySenderId.connected || !configuration.cfg->session.isRadioRunning) {
+	if (mySenderId.connected || !isRadioEnabled) {
 		digitalWrite(pinLedRed, LOW);
 		digitalWrite(pinLedBlue, occupancy.occupied ? HIGH : LOW);
 		digitalWrite(pinLedGreen, occupancy.occupied ? LOW : HIGH);
@@ -307,7 +300,7 @@ void showStatus(int timerId) {
 
 void sendStatus(int timerId) {
 	#ifdef ENABLE_RADIO
-		if (configuration.cfg->session.isRadioRunning) {
+		if (isRadioEnabled) {
 			unsigned long data = occupancy.occupied | mySenderId.senderId;
 			bool ok = radio.write(&data, sizeof(data));
 			if (!ok) {
@@ -355,8 +348,7 @@ void detectSonar(int timerId) {
 }
 
 void logCurrentState() {
-	printf("%s: Occupied? %s | Lights? %s (%4d/%4d) | Motion? %s | Sonar? %s (%4d/%4d/%d)\n",
-			mySenderId.name,
+	printf("Occupied? %s | Lights? %s (%4d/%4d) | Motion? %s | Sonar? %s (%4d/%4d/%d)\n",
 			(occupancy.occupied  	  ? "YES" : " NO"),
 			(occupancy.lightOn  ? "YES" : " NO"),
 				light.getLightReading(),
@@ -369,7 +361,7 @@ void logCurrentState() {
   			);
 
 #ifdef ENABLE_SERIAL_LCD
-	if (mySenderId.connected || flagStatusLCD || !(configuration.cfg->session.isRadioRunning)) {
+	if (mySenderId.connected || flagStatusLCD || !(isRadioEnabled)) {
 		sprintf(buffer, "%s %s(%3d:%3d)",
 				(occupancy.occupied  	  ? "Occp": "Vcnt"),
 				(occupancy.lightOn  	  ? "+L"  : "-L"), light.getLightReading(), light.getThreshold());
@@ -423,18 +415,20 @@ void analyzeOccupancy(int timerId) {
 
 void radioStart() {
 	#ifdef ENABLE_RADIO
-		#ifdef ENABLE_SERIAL_LCD
-			debugLCD.print("Initializing", "radio...");
-		#endif
 		radio.begin();
 		radio.setRetries(15, 15);
 		radio.setPayloadSize(8);
+
+		#ifdef ENABLE_SERIAL_LCD
+			debugLCD.print("Radio Starting..");
+			delay(500);
+		#endif
 
 		Serial.print(F("creating a pipe "));
 		printf("x#%d => [%X], ", me, (unsigned int) mySenderId.pipe);
 		radio.openWritingPipe(mySenderId.pipe);
 		radio.printDetails();
-		configuration.setIsRadioRunning(true);
+		isRadioEnabled = true;
 	#endif
 }
 
@@ -442,19 +436,16 @@ void radioStart() {
 void radioPowerDown() {
 	#ifdef ENABLE_RADIO
 		#ifdef ENABLE_SERIAL_LCD
-			debugLCD.print("Radio reset", "Powering down");
+			debugLCD.print("Radio Stopping.");
+			delay(500);
 		#endif
 		radio.powerDown();
-		delay(100);
-		configuration.setIsRadioRunning(false);
+		isRadioEnabled = false;
 	#endif
 }
 
 void radioPowerUp() {
 	#ifdef ENABLE_RADIO
-		#ifdef ENABLE_SERIAL_LCD
-			debugLCD.print("Radio start", "Powering UP");
-		#endif
 		radio.powerUp();
 		radioStart();
 	#endif
@@ -486,8 +477,6 @@ void setup(void) {
 
 	#ifdef ENABLE_SERIAL_LCD
 		debugLCD.init();
-		delay(200); // wait for display to boot up
-		debugLCD.print("BORAT(c)2014 v2", "Booting...");
 		delay(1000);
 		debugLCD.print("BORAT(c)2014 v2", "Calibrating...");
 	#endif
@@ -507,7 +496,7 @@ void setup(void) {
 	resetOccupancy();
 	memset(buffer, 0x0, sizeof(buffer));
 
-	timer.setInterval( 501,  &showStatus);
+	timer.setInterval( 1000, &showStatus);
 	timer.setInterval( 250,  &sendStatus);
 
 	timer.setInterval( 250,  &detectLight);
@@ -524,14 +513,20 @@ void loop(void) {
 	timer.run();
 	#ifdef ENABLE_ROTARY_KNOB
 		if (configuration.configure(&showConfigStatus)) {
-			if (configuration.cfg->session.shouldSaveSettings) {
+			if (configuration.session()->shouldSaveSettings) {
 				debugLCD.print("Saving Config","to the EEPROM.");
 				delay(1000);
 				applyConfig();
-			} else {
-				debugLCD.print("Not Saving...", "Changes reverted");
-				delay(2000);
 			}
+			#ifdef ENABLE_RADIO
+			if (configuration.session()->shouldToggleRadioState) {
+				if (isRadioEnabled) {
+					radioPowerDown();
+				} else {
+					radioPowerUp();
+				}
+			}
+			#endif
 		}
 	#endif
 	delay(1);

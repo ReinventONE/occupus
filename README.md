@@ -11,9 +11,7 @@ Here is a diagram that explains overall placement and concept.
 
 ![Conceptual Diagram](images/concept/layout-diagram.png)
 
-<div style="height: 300px; width: 150px; margin-left: 50px; border: 1px solid black; float: right;">
-    <img src="images/module-display/DisplayUnit-0.jpg" alt="" title="" height="300" border="1">
-</div>
+<img align="right" src="images/module-display/DisplayUnit-0.jpg" alt="" title="" height="300" border="1">
 
 The _Display_ unit can be certainly implemented in a variety of ways. I chose to use 2 sets of 8x8 LED Matrices, each attached to a Rainbowduino, programmed with _DisplayLED_ sketch.  Additional Arduino Uno (which acts as the master for the Rainbowduinos) listens on the wireless network notifications, and based on this information sends one of three possible states to each of the Rainbowduino units (which are assigned to rooms). Possible states are:
 

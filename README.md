@@ -11,22 +11,38 @@ Here is a diagram that explains overall placement and concept.
 
 ![Conceptual Diagram](images/concept/layout-diagram.png)
 
-<img align="right" src="images/module-display/DisplayUnit-0.jpg" alt="" title="" height="300" border="1">
+### Sensor Logic of the Observer
 
-The _Display_ unit can be certainly implemented in a variety of ways. I chose to use 2 sets of 8x8 LED Matrices, each attached to a Rainbowduino, programmed with _DisplayLED_ sketch.  Additional Arduino Uno (which acts as the master for the Rainbowduinos) listens on the wireless network notifications, and based on this information sends one of three possible states to each of the Rainbowduino units (which are assigned to rooms). Possible states are:
+Here is a quick summary of how Observers determine if the bathroom is occupied.
 
-1. Observer for this room is not connected or down (running pixels animation across the screen)
-2. Observer is connected, and the room is unoccupied (green "lava-lamp" like texture animation)
-3. Observer is connected, and the room is occupied (similar to green, but red)
+1. If the light is off, bathroom is unoccupied
+2. If the light is on, we look at motion sensor - if it detected movement within the last 15 seconds, we consider bathroom occupied.
+3. If motion sensor did not pick up activity in the last 15 seconds, we look at Sonar reading. If Sonar (which is meant to be pointed at the toilet) is reading distance above given threshold, that means nobody is sitting there. If the value is below threshold, someone is there.  Therefore Sonar is used as a backup to motion sensor, in those rare occasions when someone takes their sweet time on the toilet.  Without it, the system would false report the bathroom as available. Disappointment would ensue.
 
-Finally, an optional (but relatively expensive) Ethernet Arduino Shield can additionally serve the status of the occupancy data as a JSON hash over HTTP.
+All settings and thresholds are meant to be tweaked for each bathroom. This is why Observer unit contains Rotary Knob, and a connector for external serial port, meant to be a Serial LCD Display used only to configure the device, but not after.
 
 Below diagram shows components used in the Observer unit installed in each bathroom.
 
 ![Observer](images/concept/observer-components.jpg)
 
-### Cost Factor
+### Display Unit
 
+<img align="right" src="images/module-display/DisplayUnit-0.jpg" alt="" title="" height="300" border="1">
+
+The _Display_ unit can be certainly implemented in a variety of ways. I chose to use 2 sets of 8x8 LED Matrices, each attached to a Rainbowduino, programmed with _DisplayLED_ sketch.  Additional Arduino Uno (which acts as the master for the Rainbowduinos) listens on the wireless network notifications, and based on this information sends one of three possible states to each of the Rainbowduino units (which are assigned to rooms). Possible states are:
+
+1. Observer for this room is not connected or down:
+  * *running pixels animation across the screen*
+2. Observer is connected, and the room is unoccupied:
+  * *green "lava-lamp" like texture animation*
+3. Observer is connected, and the room is occupied:
+  * *similar to green, but red*
+
+Finally, an optional (but relatively expensive) Ethernet Arduino Shield can additionally serve the status of the occupancy data as a JSON hash over HTTP.  When installed, an HTTP server is started at boot, and responds to the requests about twice per second.
+
+![Display Module JSON Response](images/module-display/DisplayUnit-HTTP-Server.jpg)
+
+### Cost
 
 You may notice some of the components of this projects are not cheap. Since I was not planning on mass producing BORAT, I wanted to assemble just a few units in the easiest way possible. You can most certainly save a lot of money by replacing some of the components with cheaper alternatives.  For example, Rainbowduinos with LED Matrix Displays were at least $50 (for 2), but in my opinion the end result is way worth it.
 
@@ -77,19 +93,7 @@ Display Unit may also optionally depend on
 
 * Ethernet library
 
-## BORAT Modules
-
-### Observer
-
-Observer module uses three separate sensors to decide if the bathroom is occupied or not:
-
- * _Light Sensor_: if the light levels are below threshold, no other sensors are checked, and the bathroom is considered unoccupied.
- * _IR Motion Sensor_: if the light is on, motion sensor input is used.  If any movement detected within last 15 seconds, bathroom considered occupied.
- * _Distance Sensor_ (ultrasound): if the light is on, but the motion sensor is not detecting any activity, distance sensor is checked against the configurable distance threshold. If someone is sitting in one position motionlessly the motion sensor would not pick it up, and so the distance sensor can be configured with a specific threshold set to the number of _cm_ exactly in between what the sensor shows with a person sitting there, and without.
-
-Observer units transmit their status to the Display unit via [RF24 wireless module](http://maniacbug.wordpress.com/2011/11/02/getting-started-rf24/).
-
-#### Configuration
+## Configuration and Assembly
 
 Because all thresholds are extremely room and environment specific, Observer modules should be equipped with a [Rotary Encoder Knob](http://www.adafruit.com/products/377) (this particular model incorporates a click button, but you can install an extra button if your rotary knob doesn't have one). Using the button, the user can enter a special configuration mode, and tweak all the settings.
 
@@ -100,6 +104,9 @@ Here is a picture of one of the observer units attached to a debugging console (
 <img src="images/module-observer/Observer-Configuration-via-SerialLCD.jpg" alt="Configuring a Sensor" width="360px" align="left">
 <img src="images/module-observer/Observer-Module-3-Knob.jpg" alt="Configuring a Sensor" width="360px" align="right">
 
+
+### Config Menu
+
 The settings that can be changed are (and are cycled through by pressing the button):
 
 1. _Light sensitivity_ (between 0 and 1023): light reading below the threshold will be considered "dark" and will render the overall status as "unoccupied".
@@ -109,7 +116,7 @@ The settings that can be changed are (and are cycled through by pressing the but
 
 When you exit configuration menu by clicking the knob button, values are saved to EEPROM, so even if the unit reboots they persist and are used moving forward by that unit.
 
-#### Observer Module Design and Enclosure
+## Observer Module Design and Enclosure
 
 I built three separate Observer modules, the first two of them had Sonar built into the laser-cut enclosure, so to aim Sonar you would have to move the entire enclosure.
 
@@ -129,7 +136,7 @@ __Flexible Arm Designs__
 * [Slightly longer version of the arm, allows more angles](images/module-observer/Observer-Module-3.jpg)
 * [Side view](images/module-observer/Observer-Module-3-Side.jpg)
 
-## Display Module
+## Display Module Design and Enclosure
 
 <img src="images/module-display/DisplayUnit-1.jpg" aligh="right" width="300" border="1" margin="5"/>
 
@@ -149,20 +156,13 @@ The entire stack is standing on top of two Rainbowduinos, connected together, us
 
 Each matrix is driven by a Rainbowduino, and a serial connection is used from Arduino UNO, to the first Rainboduino, then to the second one.
 
-### TCP/IP
-
-Reporter module has ability to provide status over the TCP/IP network. Using Ethernet Arduino Shield
-we are able to run a small HTTP server that serves JSON.
-
-![Display Module JSON Response](images/module-display/DisplayUnit-HTTP-Server.jpg)
-
 ### In The Wild
 
 A couple additional photos showing the system in action on the wall at Wanelo HQ.
 
 ![Real Life](images/real-life-examples/borat-at-wanelo.jpg)
 
-### Curl Session
+### Debugging Curl Session
 
 ```
 curl -v http://172.16.0.90/ --header 'Content-Type: application/json' --header 'Accept: application/json'

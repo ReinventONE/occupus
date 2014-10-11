@@ -97,8 +97,8 @@ To make changes visible to the user of the Observer module, one must have a Seri
 
 Here is a picture of one of the observer units attached to a debugging console (16x2 LCD Matrix), which is communicated with via a Serial cable.  The LCD matrix is optional and can be plugged in/out at any time.
 
-<img src="images/module-observer/Observer-Configuration-via-SerialLCD.jpg" alt="Configuring a Sensor" width="330px" align="left">
-<img src="images/module-observer/Observer-Module-3-Knob.jpg" alt="Configuring a Sensor" width="330px" align="right">
+<img src="images/module-observer/Observer-Configuration-via-SerialLCD.jpg" alt="Configuring a Sensor" width="350px" align="left">
+<img src="images/module-observer/Observer-Module-3-Knob.jpg" alt="Configuring a Sensor" width="350px" align="right">
 
 The settings that can be changed are (and are cycled through by pressing the button):
 

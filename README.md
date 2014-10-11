@@ -122,52 +122,35 @@ Since it is not practical to be tilting or leaning the enclosure itself, the 3rd
 
 The Adobe Illustrator files inside the enclosure folder contain designs for the boxes and the arm that I used to cut out the parts on the laser cutter.
 
-#### Early Boxes with Fixed Sonar
+__Early Boxes with a Fixed Sonar__
 
-<img src="images/module-observer/Observer-Final-SinglePCB-HandMade.jpg" alt="" title=""
-style="height: 200px; margin-right: 20px; float: left;">
+* [First Version – Single PCB](images/module-observer/Observer-Final-SinglePCB-HandMade.jpg). This design does not allow to replace parts easily, as they were all soldered in.
+* [Second Version - Modular Design](images/module-observer/Observer-Final-Nano-Shield.jpg), about 2x larger, but modular (all components are connected via cables), and using the Nano Shield with the RF24 breakout.
+* [Retro 70s Version :)](images/module-observer/Observer-WoodenPanel-Prototype.jpg)
 
-<img src="images/module-observer/Observer-Final-Nano-Shield.jpg" alt="" title=""
-style="height: 200px; margin-right: 20px; float: left;">
+__Flexible Arm Designs__
 
-<img src="images/module-observer/Observer-WoodenPanel-Prototype.jpg" alt="Configuring a Sensor" title=""
-style="height: 200px; margin-right: 20px; float: left;">
-<p style="clear:both; margin-bottom: 30px;">
-
-#### Flexible Arm Designs
-
-<img src="images/module-observer/Observer-Module-3-Front.jpg" alt="" title=""
-style="height: 200px; margin-right: 20px; float: left;">
-
-<img src="images/module-observer/Observer-Module-3.jpg" alt="" title=""
-style="height: 200px; margin-right: 20px; float: left;">
-
-<img src="images/module-observer/Observer-Module-3-Side.jpg" alt="" title=""
-style="height: 200px; margin-right: 20px; float: left;">
-
-<p style="clear:both;">
-
+* [Module 3 with flexible Sonar arm](images/module-observer/Observer-Module-3-Front.jpg)
+* [Slightly longer version of the arm, allows more angles](images/module-observer/Observer-Module-3.jpg)
+* [Side view](images/module-observer/Observer-Module-3-Side.jpg)
 
 ## Display Module
 
-Primary way the display unit informs users is via two sets of LED Matrices, shown below.
+<img src="images/module-display/DisplayUnit-1.jpg" aligh="right" width="300" border="1" margin="5"/>
 
-<img src="images/module-display/DisplayUnit-1.jpg" alt="" title=""
-style="height: 170px; margin-right: 20px; float: left;">
-<img src="images/module-display/DisplayUnit-2.jpg" alt="" title=""
-style="height: 170px; margin-right: 20px; float: left;">
+Primary way the display unit informs users is via two sets of LED Matrices, shown below. I've assembled them by stacking as follows:
 
-<img src="images/module-display/DisplayUnit-3.jpg" alt="" title=""
-style="height: 170px; margin-right: 20px; float: left;">
+1. Arduino Uno
+2. Ethernet Shield
+3. Prototype Shield with connections leading to pins. Components are then connected via cables.
 
-<p style="clear:both; margin-bottom: 40px;">
+The entire stack is standing on top of two Rainbowduinos, connected together, using plastic spacers (which I glued to Rainbowduino).
 
-<img src="images/module-display/DisplayUnit-4.jpg" alt="" title=""
-style="height: 170px; margin-right: 20px; float: left;">
-<img src="images/module-display/DisplayUnit-5.jpg" alt="" title=""
-style="height: 170px; margin-right: 20px; float: left;">
-<p style="clear:both; margin-bottom: 40px;">
-
+* [Lit up version on my desk](images/module-display/DisplayUnit-0.jpg)
+* [Top view](images/module-display/DisplayUnit-2.jpg)
+* [Side with connections](images/module-display/DisplayUnit-3.jpg)
+* [Next to the box](images/module-display/DisplayUnit-4.jpg)
+* [My terrible soldering job :)](images/module-display/DisplayUnit-5.jpg)
 
 Each matrix is driven by a Rainbowduino, and a serial connection is used from Arduino UNO, to the first Rainboduino, then to the second one.
 

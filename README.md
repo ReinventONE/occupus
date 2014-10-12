@@ -2,22 +2,28 @@
 
 BORAT is an Arduino-based toilet occupancy notification system, that uses inexpensive wireless radios (nRF24L01+) to communicate occupancy status of one or more bathrooms, to the main display unit, which would be typically located in a common highly visible area.
 
-Therefore BORAT consists of two logical units:
+> __NOTE__: for a detailed discussion and history of this project, please read corresponding blog post:
+> [BORAT: Bathroom Occupancy Remote Awareness Technology with Arduino](http://kiguino.moos.io/2014/10/12/borat-bathroom-occupancy-wireless-detection-and-notification-with-arduino.html)
 
-1. __Observer Unit__, installed in each bathroom, is based on the set of three sensors, a knob and an LCD serial port for on-premises configuration of the unit, and a wireless nRF24L01+ radio card.  Up to 5 observer units are supported (this is a limitation of the radio).
-2. The __Display Unit__, which uses LED Matrices to display status of each bathroom occupancy. This unit can be additionally (and optionally) equipped with an Ethernet shield, in which case a small HTTP web server is started, and reports occupancy status over a simple JSON API.
+BORAT consists of two logical units:
 
+1. Multiple __Observer Units__, installed in each bathroom. They're based on the set of three sensors, a knob, an LCD serial port for on-premises configuration of the unit, and a wireless nRF24L01+ radio card. Up to 5 observer units are supported (this is a limitation of the radio).
+2. The __Display Unit__, which uses LED Matrices to display the status of each bathroom occupancy. This unit can be additionally (and optionally) equipped with an Ethernet shield, in which case a small HTTP web server is started. This reports occupancy status over a simple JSON API.
 Here is a diagram that explains overall placement and concept.
 
 ![Conceptual Diagram](images/concept/layout-diagram.png)
 
-### Sensor Logic of the Observer
+### Observer Unit
 
-Here is a quick summary of how Observers determine if the bathroom is occupied.
+Observers are responsible for communicating a binary status to the display unit: either __occupied__ or __available__. The display unit also has third status: __disconnected__, for each observer unit. But Observers don't have that.
 
-1. If the light is off, bathroom is unoccupied
-2. If the light is on, we look at motion sensor - if it detected movement within the last 15 seconds, we consider bathroom occupied.
-3. If motion sensor did not pick up activity in the last 15 seconds, we look at Sonar reading. If Sonar (which is meant to be pointed at the toilet) is reading distance above given threshold, that means nobody is sitting there. If the value is below threshold, someone is there.  Therefore Sonar is used as a backup to motion sensor, in those rare occasions when someone takes their sweet time on the toilet.  Without it, the system would false report the bathroom as available. Disappointment would ensue.
+How do Observers determine if the bathroom is occupied? They do so based on the following logic:
+
+1. If the light is off, the bathroom is available
+2. If the light is on, we look at the motion sensor - if it detects movement within the last 15 seconds, the bathroom is considered occupied
+3. If the motion sensor did not pick up any activity, we then look at the sonar reading.
+  * If the sonar (which is meant to be pointed at the toilet) is reading a distance below a given threshold, it means someone is sitting there, and so the bathroom is occupied.
+  * Otherwise, it's available.
 
 All settings and thresholds are meant to be tweaked for each bathroom. This is why Observer unit contains Rotary Knob, and a connector for external serial port, meant to be a Serial LCD Display used only to configure the device, but not after.
 
@@ -31,20 +37,13 @@ Below diagram shows components used in the Observer unit installed in each bathr
 
 The _Display_ unit can be certainly implemented in a variety of ways. I chose to use 2 sets of 8x8 LED Matrices, each attached to a Rainbowduino, programmed with _DisplayLED_ sketch.  Additional Arduino Uno (which acts as the master for the Rainbowduinos) listens on the wireless network notifications, and based on this information sends one of three possible states to each of the Rainbowduino units (which are assigned to rooms). Possible states are:
 
-1. Observer for this room is not connected or down:
-  * *running pixels animation across the screen*
-2. Observer is connected, and the room is unoccupied:
-  * *green "lava-lamp" like texture animation*
-3. Observer is connected, and the room is occupied:
-  * *similar to green, but red*
+1. Observer for this room is not connected or down (running pixels animation across the screen)
+2. Observer is connected, and the room is unoccupied (green "lava-lamp" like texture animation)
+3. Observer is connected, and the room is occupied (similar to green, but red)
 
 Finally, an optional (but relatively expensive) Ethernet Arduino Shield can additionally serve the status of the occupancy data as a JSON hash over HTTP.  When installed, an HTTP server is started at boot, and responds to the requests about twice per second.
 
 ![Display Module JSON Response](images/module-display/DisplayUnit-HTTP-Server.jpg)
-
-### Cost
-
-You may notice some of the components of this projects are not cheap. Since I was not planning on mass producing BORAT, I wanted to assemble just a few units in the easiest way possible. You can most certainly save a lot of money by replacing some of the components with cheaper alternatives.  For example, Rainbowduinos with LED Matrix Displays were at least $50 (for 2), but in my opinion the end result is way worth it.
 
 ## How to Use
 
@@ -109,58 +108,23 @@ Here is a picture of one of the observer units attached to a debugging console (
 
 The settings that can be changed are (and are cycled through by pressing the button):
 
-1. _Light sensitivity_ (between 0 and 1023): light reading below the threshold will be considered "dark" and will render the overall status as "unoccupied".
-2. _IR Sensor Delay_: this is a delay in milliseconds that "blocks" any reading of the motion sensor after any change was detected (this is so that it does not flicker). Typically set to 5000ms it means that once motion is detected, motion sensor reading is considered as positive for this long regardless of what the sensor actually reports.
-3. _Sonar Distance_ (in cm): distance threshold used to decide if Sonar is detecting someone or not.  Values less than threshold are positive (detect), large than threshold are negative (unoccupied).
-4. _Exit Timout_ (in seconds): if the light was left on, and we detected occupancy, but no longer do – how long should we consider the room still occupied?  If you make this number too small, the overall status will flicker as various sensors are triggered, but then released. Setting this to 10-30 seconds is reasonable.  Remember, if bathroom user turns off the light, the timeout is not used.
-5. _Save Settings?_ Defaults to NO, but if YES is chosen, we save parameters to EEPROM, so even if the unit reboots they persist and are used moving forward by that unit.
-6. _Disable Radio?_ Sometimes it's convenient to configure the sensors alone, without the unit attempting to connect to the mothership – the display unit.  Set that to YES and radio will temporarily deactivate. This is not saved to EEPROM.
+1. _Light sensitivity_ (between 0 and 1023): A light reading below the threshold will be considered "dark" and will render the overall status as "unoccupied".
+2. _IR Sensor Delay_: This is a delay in milliseconds that "blocks" any reading of the motion sensor after any change was detected (this is so that it does not flicker). Typically set to 5000ms, it means that once motion is detected, the motion sensor reading is considered positive regardless of what the sensor actually reports.
+3. _Sonar Distance_ (in cm): A distance threshold is used to decide if sonar is detecting someone or not. Values less than the threshold are positive (occupied), while larger values than the threshold are negative (unoccupied).
+4. _Exit Timout_ (in seconds): If the light was left on, and we detected occupancy, but no longer do – how long should we consider the room still occupied?  If you make this number too small, the overall status will flicker as various sensors are triggered, but are then released. Setting this to 10-30 seconds is reasonable.  Remember, if the person using the bathroom turns off the light, the timeout is not used.
+5. _Save Settings?_ Defaults to NO, but if YES is chosen, parameters are saved to EEPROM, so even if the unit reboots they persist and are used moving forward by that unit.
+6. _Disable Radio?_ Sometimes it's convenient to configure the sensors alone, without the unit attempting to connect to the mothership (the display unit).  Set that to YES and radio will temporarily deactivate. This is not saved to EEPROM.
 
-## Observer Module Design and Enclosure
+## Observer and Display Unit Design and Assembly
 
-I built three separate Observer modules, the first two of them had Sonar built into the laser-cut enclosure, so to aim Sonar you would have to move the entire enclosure.
+<img align="right" src="images/real-life-examples/borat-at-wanelo.jpg" alt="" title="" height="200" border="1">
 
-Since it is not practical to be tilting or leaning the enclosure itself, the 3rd design moved the Sonar sensor on top of the box, using an arm that allowed movement in all three degrees of freedom. This design is clearly more flexible.
-
-The Adobe Illustrator files inside the enclosure folder contain designs for the boxes and the arm that I used to cut out the parts on the laser cutter.
-
-__Early Boxes with a Fixed Sonar__
-
-* [First Version – Single PCB](images/module-observer/Observer-Final-SinglePCB-HandMade.jpg). This design does not allow to replace parts easily, as they were all soldered in.
-* [Second Version - Modular Design](images/module-observer/Observer-Final-Nano-Shield.jpg), about 2x larger, but modular (all components are connected via cables), and using the Nano Shield with the RF24 breakout.
-* [Retro 70s Version :)](images/module-observer/Observer-WoodenPanel-Prototype.jpg)
-
-__Flexible Arm Designs__
-
-* [Module 3 with flexible Sonar arm](images/module-observer/Observer-Module-3-Front.jpg)
-* [Slightly longer version of the arm, allows more angles](images/module-observer/Observer-Module-3.jpg)
-* [Side view](images/module-observer/Observer-Module-3-Side.jpg)
-
-## Display Module Design and Enclosure
-
-<img src="images/module-display/DisplayUnit-1.jpg" aligh="right" width="300" border="1" margin="5"/>
-
-Primary way the display unit informs users is via two sets of LED Matrices, shown below. I've assembled them by stacking as follows:
-
-1. Arduino Uno
-2. Ethernet Shield
-3. Prototype Shield with connections leading to pins. Components are then connected via cables.
-
-The entire stack is standing on top of two Rainbowduinos, connected together, using plastic spacers (which I glued to Rainbowduino).
-
-* [Lit up version on my desk](images/module-display/DisplayUnit-0.jpg)
-* [Top view](images/module-display/DisplayUnit-2.jpg)
-* [Side with connections](images/module-display/DisplayUnit-3.jpg)
-* [Next to the box](images/module-display/DisplayUnit-4.jpg)
-* [My terrible soldering job :)](images/module-display/DisplayUnit-5.jpg)
-
-Each matrix is driven by a Rainbowduino, and a serial connection is used from Arduino UNO, to the first Rainboduino, then to the second one.
+You can read about laser-cut designs I built for BORAT on the blog post [BORAT: Bathroom Occupancy Remote Awareness Technology with Arduino](http://kiguino.moos.io/2014/10/12/borat-bathroom-occupancy-wireless-detection-and-notification-with-arduino.html).
 
 ### In The Wild
 
-A couple additional photos showing the system in action on the wall at Wanelo HQ.
+On the right is BORAT Display Unit at [WaneloHQ](http://wanelo.com/).
 
-![Real Life](images/real-life-examples/borat-at-wanelo.jpg)
 
 ### Debugging Curl Session
 

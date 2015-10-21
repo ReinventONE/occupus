@@ -1,11 +1,13 @@
-## Bathroom Occupancy Remote Awareness Technology (BORAT)
+## Occupus
 
-BORAT is an Arduino-based toilet occupancy notification system, that uses inexpensive wireless radios (nRF24L01+) to communicate occupancy status of one or more bathrooms, to the main display unit, which would be typically located in a common highly visible area.
+### Goal: minimize pointless waiting – simply know the "right" time to use a shared bathroom in your office. 
+
+Occupus is an Arduino-based toilet occupancy notification system, that uses inexpensive wireless radios (nRF24L01+) to communicate occupancy status of one or more bathrooms, to the main display unit, which would be typically located in a common highly visible area.
 
 > __NOTE__: for a detailed discussion and history of this project, please read corresponding blog post:
-> [BORAT: Bathroom Occupancy Remote Awareness Technology with Arduino](http://kiguino.moos.io/2014/10/12/borat-bathroom-occupancy-wireless-detection-and-notification-with-arduino.html)
+> [Occupus: bathroom occupancy status communications technology with Arduino](http://kiguino.moos.io/2014/10/12/Occupus-bathroom-occupancy-wireless-detection-and-notification-with-arduino.html)
 
-BORAT consists of two logical units:
+Occupus consists of two logical units:
 
 1. Multiple __Observer Units__, installed in each bathroom. They're based on the set of three sensors, a knob, an LCD serial port for on-premises configuration of the unit, and a wireless nRF24L01+ radio card. Up to 5 observer units are supported (this is a limitation of the radio).
 2. The __Display Unit__, which uses LED Matrices to display the status of each bathroom occupancy. This unit can be additionally (and optionally) equipped with an Ethernet shield, in which case a small HTTP web server is started. This reports occupancy status over a simple JSON API.
@@ -117,13 +119,13 @@ The settings that can be changed are (and are cycled through by pressing the but
 
 ## Observer and Display Unit Design and Assembly
 
-<img align="right" src="images/real-life-examples/borat-at-wanelo.jpg" alt="" title="" height="200" border="1">
+<img align="right" src="images/real-life-examples/Occupus-at-wanelo.jpg" alt="" title="" height="200" border="1">
 
-You can read about laser-cut designs I built for BORAT on the blog post [BORAT: Bathroom Occupancy Remote Awareness Technology with Arduino](http://kiguino.moos.io/2014/10/12/borat-bathroom-occupancy-wireless-detection-and-notification-with-arduino.html).
+You can read about laser-cut designs I built for Occupus on the blog post [Occupus: bathroom occupancy status communications technology with Arduino](http://kiguino.moos.io/2014/10/12/Occupus-bathroom-occupancy-wireless-detection-and-notification-with-arduino.html).
 
 ### In The Wild
 
-On the right is BORAT Display Unit at [WaneloHQ](http://wanelo.com/).
+On the right is Occupus Display Unit at [WaneloHQ](http://wanelo.com/).
 
 
 ### Debugging Curl Session

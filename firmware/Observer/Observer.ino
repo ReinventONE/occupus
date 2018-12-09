@@ -38,9 +38,7 @@
  */
 #include "Modular.h"
 
-#include "Modular.h"
-
-#define ERR_COUNT_FOR_RADIO_RESET 50
+#define ERR_COUNT_FOR_RADIO_RESET 20
 
 #ifdef SENDER_DOWNSTAIRS
 
@@ -115,7 +113,7 @@ uint8_t
 
 #endif
 
-uint8_t me = 0; // default offset into senders[] array that
+uint8_t me = 1; // default offset into senders[] array that
 
 #include <SPI.h>
 #ifdef ENABLE_RADIO
@@ -132,7 +130,7 @@ bool isRadioEnabled = false;
 
 #ifdef ENABLE_SERIAL_LCD
 #include <SoftwareSerial.h>
-#include <SparkfunSerialLCD.h>
+#include <SparkfunLCD_Serial.h>
 #endif
 
 #include <SimpleTimer.h>
@@ -161,7 +159,7 @@ Configuration configuration(&cfg, NULL);
 #endif
 
 #ifdef ENABLE_SERIAL_LCD
-SparkfunSerialLCD debugLCD(pinSerialLcdRX);
+SparkfunLCD_Serial debugLCD(pinSerialLcdRX);
 #endif
 
 Sonar sonar(
